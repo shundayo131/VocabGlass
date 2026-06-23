@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Xcode / Swift
+## User-specific Xcode state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+## Build products
+build/
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## Swift Package Manager
+.swiftpm/
+# Note: Package.resolved is intentionally committed to pin dependency versions.
+
+# Node / Cloudflare Worker (added at M4)
+node_modules/
+.wrangler/
+dist/
+.dev.vars
+*.log
+
+# Env / secrets
+.env
+.env.*
