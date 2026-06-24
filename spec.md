@@ -1,6 +1,6 @@
 # Learn Vocabulary with Glass — v1 Spec
 
-Status: M0 through M4 (generate slice) working in the simulator. Last updated 2026-06-24.
+Status: v1 vertical slice complete and verified on real glasses. Last updated 2026-06-24.
 
 ## 1. Vision
 
@@ -21,18 +21,20 @@ breadth, as the foundation for larger prototypes next.
 
 ## 3. V1 scope
 
-In scope:
-1. Boot the app and configure DAT. Show registration and connection state.
-2. Registration plus camera permission flow through the Meta AI app.
-3. Capture Mode: create and start a DeviceSession, add a Stream, show a live
-   viewfinder, and reflect session state honestly.
-4. Manual Capture button: capture a still off the stream, preview it, save the
-   JPEG locally.
-5. Card generation: the app sends the captured photo to the AI, which analyzes
-   the image and returns a vocabulary card (word, pinyin, translation, example).
-   The app fills the card from that result.
-6. LearningCard model, persistence, and a history screen that lists saved cards
-   with thumbnails.
+In scope (all delivered):
+1. [Done] Boot the app and configure DAT. Show registration and connection state.
+2. [Done] Registration plus camera permission flow through the Meta AI app. The
+   app requests camera permission before opening the stream.
+3. [Done, adjusted] On-demand camera: tapping Start camera creates a
+   DeviceSession, adds a Stream, and reflects session state honestly. We do not
+   render a live viewfinder; capturing pulls a still off the running stream.
+4. [Done] Manual Capture button: capture a still off the stream, preview it, save
+   the JPEG locally.
+5. [Done] Card generation: the app sends the captured photo to the worker, which
+   calls Claude and returns a vocabulary card (word, pinyin, translation,
+   example). The app fills the card from that result.
+6. [Done] LearningCard model, local persistence, and a history screen that lists
+   saved cards with thumbnails.
 
 Out of scope for v1 (do not build or pad toward):
 - Voice command as the capture trigger (later phase).
@@ -48,6 +50,8 @@ Leave a comment marker where a v2 hook would attach. Nothing more.
 | Target language | Chinese (Simplified) plus pinyin | Card holds hanzi, pinyin, English gloss, example sentence. Hardcoded for v1, configurable later. |
 | Storage | Local-first, backend later | Shipped local-only first: cards and images persist on device (cards.json plus JPEG files in Documents). Backend persistence through the Worker is deferred; when added, the store will be Cloudflare D1. |
 | Mock vs real glasses | Mock-first through M4 | Build and verify the full loop against MockDeviceKit in the simulator. Touch real glasses only at M5. |
+| Camera lifecycle | On-demand | The stream is not held open at launch. The user taps Start camera to open the session and stream, captures, then Stop camera (or it returns to idle if the device ends the session). Avoids constant-stream battery, heat, and contention with other glasses experiences. |
+| AI request | base64 image in JSON, structured outputs | The app sends the JPEG as base64 in a JSON body. The worker calls claude-opus-4-8 and uses structured outputs so the four card fields always come back as valid JSON. |
 | Audio output | Out for v1 | No TTS or pronunciation playback. Natural v1.5 add. |
 
 ## 5. Architecture
@@ -126,29 +130,39 @@ the owner write it, review together, then check in before moving on.
 - M4  [Done, generate slice] Worker plus Claude. Hono worker exposes
   POST /generate; the app sends the photo and shows the generated card. Backend
   persistence (D1) is deferred; cards are saved locally for now.
-- M5  [Pending] Real glasses. Registration plus URL-callback flow is coded for
-  the device path but untested on hardware. The app still points CardAPI at
-  http://localhost:8787; deploy the worker and swap the endpoint before device
-  testing.
+- M5  [Done] Real glasses. Registration plus URL-callback flow works on device.
+  The worker is deployed to Cloudflare; the app reads its URL from a local,
+  gitignored WorkerConfig.plist. Verified end to end on real glasses: connect,
+  start camera, capture, generate card, save.
 
 Notes on how it actually went: M1 and M2 were built together against the mock.
 Registration UI lives on the real-device path (M5), not the mock path, because
-the simulator cannot complete the Meta AI registration deep link.
+the simulator cannot complete the Meta AI registration deep link. Two device
+fixes were needed: request camera permission before opening the stream (or the
+device ends the session immediately), and make the camera on-demand rather than
+held open at launch.
 
-## 8. Open decisions
+## 8. Decisions resolved during v1
 
-- Backend store: Cloudflare D1, or Supabase? Owner knows both. D1 keeps
-  everything in the Worker; Supabase gives a hosted Postgres and dashboard.
-- Image handling to the Worker: base64 in JSON, or multipart upload? Affects
-  payload size and Worker parsing.
-- Where images live long-term: keep only local, or also upload to object storage
-  (R2 or Supabase Storage) so backend cards carry an image URL?
-- Identity for backend rows in a no-auth v1: a device-generated anonymous id, or
-  a single hardcoded demo user?
-- Claude model id and exact multimodal request shape: confirm against the
-  claude-api skill before writing the Worker.
+- Image handling to the worker: base64 image in a JSON body. Simple to send from
+  URLSession and to parse in the worker.
+- Claude request: model `claude-opus-4-8`, multimodal image block plus a text
+  prompt, with structured outputs (`output_config.format`) enforcing the four
+  card fields.
+- Storage: local-first. Cards and images persist on device; no backend yet.
 
-## 9. References
+## 9. Still open (next phases)
+
+- Backend store: Cloudflare D1 when we add server-side persistence (decided), vs
+  Supabase. Not built in v1.
+- Where images live long-term: local only today; object storage (R2 or Supabase
+  Storage) if backend cards need an image URL.
+- Identity for backend rows in a no-auth app: device-generated anonymous id vs a
+  single hardcoded demo user. Only matters once there is a backend.
+- Live viewfinder: we capture without rendering frames. Add a live preview if the
+  demo needs the user to aim.
+
+## 10. References
 
 - DAT API surface and conventions: see AGENTS.md.
 - DAT docs: https://wearables.developer.meta.com/docs/develop/
