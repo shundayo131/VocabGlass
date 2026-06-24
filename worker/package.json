@@ -1,0 +1,17 @@
+{
+  "name": "vocabglass-worker",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest",
+    "hono": "latest"
+  },
+  "devDependencies": {
+    "wrangler": "latest",
+    "typescript": "latest",
+    "@cloudflare/workers-types": "latest"
+  }
+}
