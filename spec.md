@@ -1,6 +1,6 @@
 # Learn Vocabulary with Glass — v1 Spec
 
-Status: draft for review. Last updated 2026-06-23.
+Status: M0 through M4 (generate slice) working in the simulator. Last updated 2026-06-24.
 
 ## 1. Vision
 
@@ -46,7 +46,7 @@ Leave a comment marker where a v2 hook would attach. Nothing more.
 | Topic | Decision | Notes |
 |-------|----------|-------|
 | Target language | Chinese (Simplified) plus pinyin | Card holds hanzi, pinyin, English gloss, example sentence. Hardcoded for v1, configurable later. |
-| Storage | Write to a backend now | Cards persist to a backend through the Worker, not local-only. App keeps a local cache for offline display. Backend store choice is open (see section 8). |
+| Storage | Local-first, backend later | Shipped local-only first: cards and images persist on device (cards.json plus JPEG files in Documents). Backend persistence through the Worker is deferred; when added, the store will be Cloudflare D1. |
 | Mock vs real glasses | Mock-first through M4 | Build and verify the full loop against MockDeviceKit in the simulator. Touch real glasses only at M5. |
 | Audio output | Out for v1 | No TTS or pronunciation playback. Natural v1.5 add. |
 
@@ -113,21 +113,27 @@ request format against the claude-api skill.
 Each milestone: explain the concept, hand over a skeleton plus instructions, let
 the owner write it, review together, then check in before moving on.
 
-- M0  Project skeleton. SwiftUI app, iOS 16+. Add the DAT package. Configure
-  Info.plist. Call `Wearables.configure()`. Build clean on the simulator.
-- M1  Mock device plus session lifecycle. Wire MockDeviceKit, drive
+- M0  [Done] Project skeleton. SwiftUI app, iOS 16+. Add the DAT package.
+  Configure Info.plist. Call `Wearables.configure()`. Build clean on the simulator.
+- M1  [Done] Mock device plus session lifecycle. Wire MockDeviceKit, drive
   powerOn/unfold/don, create and start a DeviceSession, render session state.
-  Registration and permission UI lands here for the mock path.
-- M2  Stream plus live preview plus capture. Add a Stream, show the viewfinder,
-  wire the Capture button and photoDataPublisher, preview the still.
-- M3  Local save, LearningCard, manual card. Save the JPEG, define the model,
-  persist locally, type a card by hand, see it in the history list. Typing the
-  card by hand proves the capture-to-card loop before any network call.
-- M4  Worker plus Claude. Build the endpoint, send the image, get the generated
-  card, persist to the backend, and replace the manual typing from M3 with the
-  AI-generated result.
-- M5  (optional) Real glasses. Swap to real hardware, run registration and
-  permissions for real, test on device.
+- M2  [Done] Stream plus capture. Add a Stream, feed the mock a sample video so
+  it reaches streaming, wire the Capture button and photoDataPublisher, preview
+  the still. Live viewfinder frames were not needed for the slice.
+- M3  [Done, adjusted] Local save plus history. Define LearningCard / SavedCard,
+  save the JPEG and card locally, list saved cards with thumbnails. We skipped
+  the hand-typed card and went straight to the AI result once M4 worked.
+- M4  [Done, generate slice] Worker plus Claude. Hono worker exposes
+  POST /generate; the app sends the photo and shows the generated card. Backend
+  persistence (D1) is deferred; cards are saved locally for now.
+- M5  [Pending] Real glasses. Registration plus URL-callback flow is coded for
+  the device path but untested on hardware. The app still points CardAPI at
+  http://localhost:8787; deploy the worker and swap the endpoint before device
+  testing.
+
+Notes on how it actually went: M1 and M2 were built together against the mock.
+Registration UI lives on the real-device path (M5), not the mock path, because
+the simulator cannot complete the Meta AI registration deep link.
 
 ## 8. Open decisions
 
