@@ -32,3 +32,6 @@ dist/
 # Env / secrets
 .env
 .env.*
+
+# iOS local config (holds the deployed worker URL). Keep the .example committed.
+WorkerConfig.plist

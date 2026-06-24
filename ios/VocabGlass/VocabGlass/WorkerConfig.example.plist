@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Copy this file to WorkerConfig.plist (gitignored) and set the full
+	     /generate URL of your deployed worker. Without WorkerConfig.plist the
+	     app falls back to http://localhost:8787/generate for local dev. -->
+	<key>WorkerURL</key>
+	<string>https://your-worker.workers.dev/generate</string>
+</dict>
+</plist>

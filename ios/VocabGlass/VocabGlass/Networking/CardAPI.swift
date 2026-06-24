@@ -9,9 +9,21 @@ import Foundation
 import UIKit
 
 enum CardAPI {
-    // Simulator can reach the Mac's localhost. For a real device, point this at
-    // the deployed worker URL instead.
-    static let endpoint = URL(string: "http://localhost:8787/generate")!
+    // The endpoint is read from a local, gitignored WorkerConfig.plist so the
+    // deployed worker URL is never committed to the public repo.
+    //
+    // Running the worker locally (npm run dev)? Then either delete
+    // WorkerConfig.plist or set its WorkerURL to http://localhost:8787/generate.
+    // With no WorkerConfig.plist present, the fallback below points there too.
+    static let endpoint: URL = {
+        if let url = Bundle.main.url(forResource: "WorkerConfig", withExtension: "plist"),
+           let config = NSDictionary(contentsOf: url),
+           let base = config["WorkerURL"] as? String,
+           let parsed = URL(string: base) {
+            return parsed
+        }
+        return URL(string: "http://localhost:8787/generate")!
+    }()
 
     struct Payload: Encodable {
         let image: String       // base64 jpeg
