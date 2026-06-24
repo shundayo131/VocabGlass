@@ -27,6 +27,7 @@ node_modules/
 dist/
 .dev.vars
 *.log
+.dev.vars
 
 # Env / secrets
 .env
