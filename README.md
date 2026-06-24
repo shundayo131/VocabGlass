@@ -1,6 +1,6 @@
 # VocabGlass
 
-A demo application for language learners, built on **iOS + Meta Ray-Ban (Gen 2)
+A demo application built on **iOS + Meta Ray-Ban (Gen 2)
 smart glasses**. It explores pairing an iPhone app with the Meta Wearables
 Device Access Toolkit (DAT) and a multimodal AI backend.
 
@@ -17,6 +17,12 @@ This is a demo, not a product. It proves one vertical slice end to end.
 
 The glasses are an input device, not an app runtime. The app runs on iPhone and
 reads photos from the glasses over Bluetooth via the DAT SDK.
+
+## Screenshots
+
+| Capture a photo | Generate a card | Browse your deck |
+|---|---|---|
+| ![Captured photo](docs/screenshots/01-capture.png) | ![Generated card](docs/screenshots/02-card.png) | ![Saved deck](docs/screenshots/03-deck.png) |
 
 ## Architecture
 
@@ -46,16 +52,7 @@ Claude -> { word, pinyin, translation, example } -> saved card
 - **Glasses**: Meta Wearables DAT SDK 0.7.0 (MWDATCore, MWDATCamera,
   MWDATMockDevice)
 - **Backend**: Cloudflare Workers with Hono
-- **AI**: Anthropic Claude (`claude-opus-4-8`) with structured outputs
-
-## Layout
-
-```
-ios/      The SwiftUI app (App / ViewModels / Views / Models / Networking)
-worker/   The Cloudflare Worker that calls Claude
-spec.md   Scope, architecture, decisions, and milestones
-AGENTS.md Instructions for working in this repo
-```
+- **AI**: Anthropic Claude (`claude-sonnet-4-6`) with structured outputs
 
 ## Running it
 
