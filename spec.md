@@ -21,27 +21,19 @@ breadth, as the foundation for larger prototypes next.
 
 ## 3. V1 scope
 
-In scope (all delivered):
-1. [Done] Boot the app and configure DAT. Show registration and connection state.
-2. [Done] Registration plus camera permission flow through the Meta AI app. The
-   app requests camera permission before opening the stream.
-3. [Done, adjusted] On-demand camera: tapping Start camera creates a
-   DeviceSession, adds a Stream, and reflects session state honestly. We do not
-   render a live viewfinder; capturing pulls a still off the running stream.
-4. [Done] Manual Capture button: capture a still off the stream, preview it, save
-   the JPEG locally.
-5. [Done] Card generation: the app sends the captured photo to the worker, which
-   calls Claude and returns a vocabulary card (word, pinyin, translation,
-   example). The app fills the card from that result.
-6. [Done] LearningCard model, local persistence, and a history screen that lists
-   saved cards with thumbnails.
+In scope:
+1. Register and connect to the glasses through the Meta AI app, including the
+   camera permission flow.
+2. On-demand camera: open a DeviceSession and Stream, capture a still, save the
+   JPEG locally.
+3. Card generation: send the photo to the worker, get back a vocabulary card
+   (word, pinyin, translation, example), and show it.
+4. Save cards with their photo into a local deck, browsable in a history screen.
 
-Out of scope for v1 (do not build or pad toward):
-- Voice command as the capture trigger (later phase).
-- Realtime conversational Q&A about what the user sees (v2).
+Out of scope:
+- Voice command as the capture trigger (next phase).
+- Realtime conversational Q&A about what the user sees.
 - Spaced repetition, analytics, sync, auth, App Store polish, cross-platform.
-
-Leave a comment marker where a v2 hook would attach. Nothing more.
 
 ## 4. Decisions made
 
@@ -49,7 +41,7 @@ Leave a comment marker where a v2 hook would attach. Nothing more.
 |-------|----------|-------|
 | Target language | Chinese (Simplified) plus pinyin | Card holds hanzi, pinyin, English gloss, example sentence. Hardcoded for v1, configurable later. |
 | Storage | Local-first, backend later | Shipped local-only first: cards and images persist on device (cards.json plus JPEG files in Documents). Backend persistence through the Worker is deferred; when added, the store will be Cloudflare D1. |
-| Mock vs real glasses | Mock-first through M4 | Build and verify the full loop against MockDeviceKit in the simulator. Touch real glasses only at M5. |
+| Mock vs real glasses | Mock-first | Build and verify the full loop against MockDeviceKit in the simulator. Touch real glasses last. |
 | Camera lifecycle | On-demand | The stream is not held open at launch. The user taps Start camera to open the session and stream, captures, then Stop camera (or it returns to idle if the device ends the session). Avoids constant-stream battery, heat, and contention with other glasses experiences. |
 | AI request | base64 image in JSON, structured outputs | The app sends the JPEG as base64 in a JSON body. The worker calls claude-opus-4-8 and uses structured outputs so the four card fields always come back as valid JSON. |
 | Audio output | Out for v1 | No TTS or pronunciation playback. Natural v1.5 add. |
@@ -93,66 +85,36 @@ Claude -> { word, pinyin, translation, example } -> app -> saved LearningCard
 - `URLSession` is like `fetch`. The Worker world is unchanged from what the
   owner already knows. The only new part is sending an image to it.
 
-## 6. Data model (draft)
+## 6. Data model
 
-`LearningCard`:
-- `id` (UUID)
-- `imagePath` or `imageURL` (local cache path; remote URL if uploaded)
-- `word` (hanzi)
-- `pinyin`
-- `translation` (English)
-- `example` (sentence in Chinese)
-- `createdAt`
+`LearningCard` (the worker's response): `word` (hanzi), `pinyin`,
+`translation` (English), `example` (sentence in Chinese).
 
-Worker `POST /generate` response shape (draft):
+`SavedCard` (stored locally): the four card fields plus `id`, `imageFileName`,
+and `createdAt`.
+
+Worker `POST /generate` response shape:
 ```json
 { "word": "...", "pinyin": "...", "translation": "...", "example": "..." }
 ```
+The worker returns exactly these four fields, enforced by Claude structured
+outputs.
 
-These shapes get firmed up in M4 when we wire the Worker and confirm the Claude
-request format against the claude-api skill.
-
-## 7. Milestones
-
-Each milestone: explain the concept, hand over a skeleton plus instructions, let
-the owner write it, review together, then check in before moving on.
-
-- M0  [Done] Project skeleton. SwiftUI app, iOS 16+. Add the DAT package.
-  Configure Info.plist. Call `Wearables.configure()`. Build clean on the simulator.
-- M1  [Done] Mock device plus session lifecycle. Wire MockDeviceKit, drive
-  powerOn/unfold/don, create and start a DeviceSession, render session state.
-- M2  [Done] Stream plus capture. Add a Stream, feed the mock a sample video so
-  it reaches streaming, wire the Capture button and photoDataPublisher, preview
-  the still. Live viewfinder frames were not needed for the slice.
-- M3  [Done, adjusted] Local save plus history. Define LearningCard / SavedCard,
-  save the JPEG and card locally, list saved cards with thumbnails. We skipped
-  the hand-typed card and went straight to the AI result once M4 worked.
-- M4  [Done, generate slice] Worker plus Claude. Hono worker exposes
-  POST /generate; the app sends the photo and shows the generated card. Backend
-  persistence (D1) is deferred; cards are saved locally for now.
-- M5  [Done] Real glasses. Registration plus URL-callback flow works on device.
-  The worker is deployed to Cloudflare; the app reads its URL from a local,
-  gitignored WorkerConfig.plist. Verified end to end on real glasses: connect,
-  start camera, capture, generate card, save.
-
-Notes on how it actually went: M1 and M2 were built together against the mock.
-Registration UI lives on the real-device path (M5), not the mock path, because
-the simulator cannot complete the Meta AI registration deep link. Two device
-fixes were needed: request camera permission before opening the stream (or the
-device ends the session immediately), and make the camera on-demand rather than
-held open at launch.
-
-## 8. Decisions resolved during v1
+## 7. Decisions resolved during v1
 
 - Image handling to the worker: base64 image in a JSON body. Simple to send from
   URLSession and to parse in the worker.
-- Claude request: model `claude-opus-4-8`, multimodal image block plus a text
+- Claude request: model `claude-sonnet-4-6`, multimodal image block plus a text
   prompt, with structured outputs (`output_config.format`) enforcing the four
   card fields.
 - Storage: local-first. Cards and images persist on device; no backend yet.
 
-## 9. Still open (next phases)
+## 8. Still open (next phases)
 
+- Voice-driven capture: trigger capture (and the card flow) by voice instead of
+  the on-screen button. Either a voice command on the glasses as the capture
+  trigger, or streaming audio so a spoken instruction drives the photo-to-card
+  process end to end.
 - Backend store: Cloudflare D1 when we add server-side persistence (decided), vs
   Supabase. Not built in v1.
 - Where images live long-term: local only today; object storage (R2 or Supabase
@@ -162,7 +124,7 @@ held open at launch.
 - Live viewfinder: we capture without rendering frames. Add a live preview if the
   demo needs the user to aim.
 
-## 10. References
+## 9. References
 
 - DAT API surface and conventions: see AGENTS.md.
 - DAT docs: https://wearables.developer.meta.com/docs/develop/
