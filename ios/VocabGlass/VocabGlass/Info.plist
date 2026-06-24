@@ -19,6 +19,12 @@
 	<array>
 		<string>fb-viewapp</string>
 	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Allow plain http to the local worker (wrangler dev on localhost). -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>MWDAT</key>
 	<dict>
 		<key>AppLinkURLScheme</key>

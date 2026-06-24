@@ -10,6 +10,9 @@ import MWDATCore
 
 @main
 struct VocabGlassApp: App {
+    @StateObject private var client = GlassesClient()
+    @StateObject private var store = CardStore()
+
     init() {
         do {
             try Wearables.configure()
@@ -21,7 +24,7 @@ struct VocabGlassApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(client: client, store: store)
         }
     }
 }
