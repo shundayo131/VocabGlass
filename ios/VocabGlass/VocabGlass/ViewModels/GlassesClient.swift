@@ -21,6 +21,7 @@ final class GlassesClient: ObservableObject {
     @Published var card: LearningCard?
     @Published var isGenerating = false
     @Published var registrationState: RegistrationState = .unavailable
+    @Published var cameraOn = false      // user asked for the camera
     @Published var isReady = false       // stream is streaming, capture allowed
     @Published var status = "starting"
     @Published var lastError: String?
@@ -32,11 +33,11 @@ final class GlassesClient: ObservableObject {
     private var session: DeviceSession?
     private var stream: MWDATCamera.Stream?
     private var didStart = false
-    private var streamStarted = false
 
     // Listener tokens must be retained, or the SDK drops the listeners.
     private var photoToken: (any AnyListenerToken)?
     private var stateToken: (any AnyListenerToken)?
+    private var errorToken: (any AnyListenerToken)?
     private var registrationTask: Task<Void, Never>?
 
     // MARK: - Start
@@ -46,12 +47,32 @@ final class GlassesClient: ObservableObject {
         didStart = true
         #if targetEnvironment(simulator)
         setUpMockDevice()
-        observeRegistration()
-        Task { await startStream() }
-        #else
-        // Real device: stream starts once registered (see observeRegistration).
-        observeRegistration()
         #endif
+        observeRegistration()
+        status = "tap Start camera"
+    }
+
+    // On-demand: open the camera stream when the user asks for it.
+    func startCamera() {
+        guard !cameraOn else { return }
+        cameraOn = true
+        Task { await startStream() }
+    }
+
+    // Close the stream and session, back to idle.
+    func stopCamera() {
+        stateToken = nil
+        errorToken = nil
+        photoToken = nil
+        if let stream = stream {
+            Task { await stream.stop() }
+        }
+        stream = nil
+        session?.stop()
+        session = nil
+        isReady = false
+        cameraOn = false
+        status = "tap Start camera"
     }
 
     // MARK: - Registration (real device)
@@ -61,22 +82,8 @@ final class GlassesClient: ObservableObject {
         registrationTask = Task {
             for await state in wearables.registrationStateStream() {
                 self.registrationState = state
-                #if !targetEnvironment(simulator)
-                if state == .registered, !self.streamStarted {
-                    self.streamStarted = true
-                    await self.startStream()
-                }
-                #endif
             }
         }
-        #if !targetEnvironment(simulator)
-        if wearables.registrationState == .registered, !streamStarted {
-            streamStarted = true
-            Task { await startStream() }
-        } else if wearables.registrationState != .registered {
-            status = "not registered — tap Connect glasses"
-        }
-        #endif
     }
 
     // Open the Meta AI app to register. Result returns via handleUrl(_:).
@@ -99,6 +106,27 @@ final class GlassesClient: ObservableObject {
     // MARK: - Streaming
 
     private func startStream() async {
+        // Camera permission must be granted first, or the device ends the
+        // session the moment we try to stream. On the mock it is already granted.
+        do {
+            status = "checking camera permission"
+            var permission = try await wearables.checkPermissionStatus(.camera)
+            if permission != .granted {
+                permission = try await wearables.requestPermission(.camera)
+            }
+            guard permission == .granted else {
+                lastError = "camera permission not granted"
+                cameraOn = false
+                status = "tap Start camera"
+                return
+            }
+        } catch {
+            lastError = "permission: \(error.localizedDescription)"
+            cameraOn = false
+            status = "tap Start camera"
+            return
+        }
+
         // AutoDeviceSelector resolves an eligible device asynchronously.
         // Creating a session before a device is active throws noEligibleDevice,
         // so wait until the selector reports one.
@@ -127,10 +155,18 @@ final class GlassesClient: ObservableObject {
             self.session = session
             self.stream = stream
 
+            // Surface why the device stops the session, if it does.
+            observeSessionErrors(session)
+
             stateToken = stream.statePublisher.listen { [weak self] state in
                 Task { @MainActor in
                     self?.status = "stream: \(state)"
                     self?.isReady = (state == .streaming)   // capture only while streaming
+                }
+            }
+            errorToken = stream.errorPublisher.listen { [weak self] error in
+                Task { @MainActor in
+                    self?.lastError = "stream error: \(error.localizedDescription)"
                 }
             }
             photoToken = stream.photoDataPublisher.listen { [weak self] photo in
@@ -143,6 +179,19 @@ final class GlassesClient: ObservableObject {
             await stream.start()
         } catch {
             lastError = "\(error.localizedDescription)"
+            cameraOn = false
+            status = "tap Start camera"
+        }
+    }
+
+    private func observeSessionErrors(_ session: DeviceSession) {
+        Task {
+            for await error in session.errorStream() {
+                self.lastError = "session error: \(error.localizedDescription)"
+                // The device ended the session. Go back to idle so the user can
+                // start the camera again when ready.
+                self.stopCamera()
+            }
         }
     }
 

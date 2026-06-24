@@ -41,6 +41,24 @@ struct ContentView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+            } else if !client.cameraOn {
+                Button {
+                    client.startCamera()
+                } label: {
+                    Label("Start camera", systemImage: "video.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            } else {
+                Button(role: .destructive) {
+                    client.stopCamera()
+                } label: {
+                    Label("Stop camera", systemImage: "stop.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
 
             Button {
