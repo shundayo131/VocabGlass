@@ -64,9 +64,7 @@ final class GlassesClient: ObservableObject {
         stateToken = nil
         errorToken = nil
         photoToken = nil
-        if let stream = stream {
-            Task { await stream.stop() }
-        }
+        stream?.stop()
         stream = nil
         session?.stop()
         session = nil
@@ -158,25 +156,25 @@ final class GlassesClient: ObservableObject {
             // Surface why the device stops the session, if it does.
             observeSessionErrors(session)
 
-            stateToken = stream.statePublisher.listen { [weak self] state in
-                Task { @MainActor in
+            stateToken = stream.statePublisher.listen { state in
+                Task { @MainActor [weak self] in
                     self?.status = "stream: \(state)"
                     self?.isReady = (state == .streaming)   // capture only while streaming
                 }
             }
-            errorToken = stream.errorPublisher.listen { [weak self] error in
-                Task { @MainActor in
+            errorToken = stream.errorPublisher.listen { error in
+                Task { @MainActor [weak self] in
                     self?.lastError = "stream error: \(error.localizedDescription)"
                 }
             }
-            photoToken = stream.photoDataPublisher.listen { [weak self] photo in
-                Task { @MainActor in
+            photoToken = stream.photoDataPublisher.listen { photo in
+                Task { @MainActor [weak self] in
                     self?.capturedImage = UIImage(data: photo.data)
                     self?.status = "photo captured"
                 }
             }
 
-            await stream.start()
+            stream.start()
         } catch {
             lastError = "\(error.localizedDescription)"
             cameraOn = false
@@ -223,21 +221,25 @@ final class GlassesClient: ObservableObject {
     #if targetEnvironment(simulator)
     private func setUpMockDevice() {
         MockDeviceKit.shared.enable()
-        let device = MockDeviceKit.shared.pairRaybanMeta()
+        do {
+            let device = try MockDeviceKit.shared.pairGlasses(model: .rayBanMeta)
 
-        // Drive the device to a worn, available state, like the sample's debug menu.
-        device.powerOn()
-        device.unfold()
-        device.don()
+            // Drive the device to a worn, available state, like the sample's debug menu.
+            device.powerOn()
+            device.unfold()
+            device.don()
 
-        // Feed the mock a video so the stream actually streams, and a still so
-        // capturePhoto returns an image. These are Meta's sample test resources.
-        let camera = device.services.camera
-        if let videoURL = Bundle.main.url(forResource: "plant", withExtension: "mp4") {
-            camera.setCameraFeed(fileURL: videoURL)
-        }
-        if let imageURL = Bundle.main.url(forResource: "plant", withExtension: "png") {
-            camera.setCapturedImage(fileURL: imageURL)
+            // Feed the mock a video so the stream actually streams, and a still so
+            // capturePhoto returns an image. These are Meta's sample test resources.
+            let camera = device.services.camera
+            if let videoURL = Bundle.main.url(forResource: "plant", withExtension: "mp4") {
+                camera.setCameraFeed(fileURL: videoURL)
+            }
+            if let imageURL = Bundle.main.url(forResource: "plant", withExtension: "png") {
+                camera.setCapturedImage(fileURL: imageURL)
+            }
+        } catch {
+            lastError = "mock setup: \(error.localizedDescription)"
         }
     }
     #endif
