@@ -31,12 +31,14 @@ languages, and real review features (edit, delete, flashcards).
 In scope:
 1. Voice sessions: start a session from the app; the glasses camera stream and
    a realtime voice loop run together. "Capture this" triggers the photo-to-card
-   flow with spoken confirmation. "End session" (or a 10 minute cap) ends it.
+   flow with spoken confirmation. The session keeps running while the iPhone is
+   locked or the app is in the background. It ends by voice command ("End
+   session"), by a button in the app, or at the 10 minute cap.
 2. Target language selection: French, Spanish, Chinese, Japanese. Definitions
    in English. Pronunciation aid per language (pinyin for Chinese, kana or
    romaji for Japanese).
 3. Learning features: edit and delete saved entries, review the deck as
-   flashcards (image front, card fields back).
+   flashcards (image shown first, answer revealed below it).
 
 Out of scope (unchanged from the product doc):
 - Folders, completion status, spaced repetition, or other advanced deck
@@ -53,7 +55,11 @@ Out of scope (unchanged from the product doc):
 | Realtime voice API | Gemini Live API, connected directly from the app | WebSocket from iOS. A Worker endpoint mints short-lived ephemeral tokens so the Gemini key never ships in the app. |
 | Entry generation LLM | Anthropic Claude, via the existing Worker | Multimodal request plus structured outputs. Unchanged from v1 except for the language parameter and generalized schema. |
 | Voice in/out | Glasses mic and speakers over standard Bluetooth (HFP), not DAT | DAT 0.8.0 has no microphone API. Meta's documented pattern for third-party apps is HFP through AVAudioSession. See section 6 for constraints. |
-| Session length | 10 minutes, enforced by a client-side timer | Also bounded by Gemini Live session limits and token TTL; confirm during M10. |
+| Session length | 10 minutes, enforced by a client-side timer | Also bounded by Gemini Live session limits and token TTL; confirm during M8. |
+| Background sessions | The session keeps running with the phone locked or the app backgrounded | Enabled by the iOS audio background mode (`UIBackgroundModes: audio` in Info.plist): an app actively recording and playing audio stays alive in the background, which also keeps the WebSocket and DAT work running. Whether the DAT stream itself survives backgrounding is verified in M7. |
+| Ending a session | Voice command, in-app button, or the timer | All three paths run the same teardown in SessionController. |
+| UI design | Deliberately simple, function over polish | The M6 mockups define structure and flow only, not visual design. The owner writes the SwiftUI as coding practice, with skeletons and guidance from Claude. |
+| Flashcard reveal | "Show answer" below the image, not a flip animation | Simpler to build and to use one-handed. A flip can come later if wanted. |
 | Spike first | Verify glasses audio + DAT stream together before building voice features | Desk research says this works (section 6); the spike confirms quality and stability on our hardware. Runs on a throwaway branch. |
 | Card model | Generalize pinyin to pronunciation, add language | Decode-time migration maps old saved cards (pinyin, implicit Chinese) to the new shape. |
 | Target language | User-selected: French, Spanish, Chinese, Japanese | Chosen at first run, changeable in settings. Applies to new cards only. |
@@ -182,9 +188,12 @@ everything after builds on main.
   small `AudioSpike` helper: configure the Bluetooth HFP route, confirm the
   route lands on the glasses, record and play back a loop, then run the
   existing camera stream and photo capture at the same time using the section
-  6 ordering rule. Exit criteria: route is stable for minutes, capture works
-  during audio, 8 kHz quality judged acceptable by ear. Findings go into
-  section 6; the branch is then deleted.
+  6 ordering rule. Also test backgrounding: with `UIBackgroundModes: audio`
+  set, lock the phone mid-session and confirm audio and the DAT stream keep
+  running and capture still works. Exit criteria: route is stable for minutes,
+  capture works during audio, 8 kHz quality judged acceptable by ear, session
+  survives the screen lock. Findings go into section 6; the branch is then
+  deleted.
 - M8 — Gemini Live plumbing. Worker `POST /token` minting ephemeral tokens;
   `GeminiLiveClient` in the app: WebSocket, audio up and down, tool
   declarations (`capture_object`, `end_session`). Testable with the iPhone
@@ -192,16 +201,18 @@ everything after builds on main.
   minutes.
 - M9 — Voice session orchestration. `SessionController` ties DAT, audio, and
   Gemini together per the section 5 flow, including the HFP-before-start
-  ordering, the 10 minute cap, and teardown on device-initiated session end.
-  Session UI per the M6 mockups. Chinese hardcoded until M10.
+  ordering, the 10 minute cap, background continuation, and teardown from all
+  three end paths (voice command, in-app button, timer) plus device-initiated
+  session end. Session UI per the M6 mockups, kept simple. Chinese hardcoded
+  until M10.
 - M10 — Language selection. First-run and settings picker; worker takes
   `language` and returns the generalized schema; model rename and decode
   migration per section 7. Voice confirmations follow the selected language.
 - M11 — Edit and delete entries. Swipe-to-delete and an edit sheet in
   HistoryView; update/delete with image file cleanup in CardStore.
-- M12 — Flashcard review. Review mode over the deck: image front; word,
-  pronunciation, translation, example on the back; tap to flip, swipe to
-  advance.
+- M12 — Flashcard review. Review mode over the deck: the image is shown first
+  with the answer hidden; a "Show answer" tap reveals word, pronunciation,
+  translation, and example below it. Swipe or a next button to advance.
 - M13 — Demo polish. Session screen with live status and last saved card,
   error surfacing, hardening for a live demo.
 
