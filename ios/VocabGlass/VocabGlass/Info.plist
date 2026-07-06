@@ -19,12 +19,6 @@
 	<array>
 		<string>fb-viewapp</string>
 	</array>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<!-- Allow plain http to the local worker (wrangler dev on localhost). -->
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
 	<key>MWDAT</key>
 	<dict>
 		<key>AppLinkURLScheme</key>
@@ -32,10 +26,16 @@
 		<key>MetaAppID</key>
 		<string>0</string>
 	</dict>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
 		<string>external-accessory</string>
+		<string>audio</string>
 	</array>
 	<key>UISupportedExternalAccessoryProtocols</key>
 	<array>

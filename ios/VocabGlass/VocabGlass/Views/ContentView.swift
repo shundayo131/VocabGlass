@@ -110,6 +110,11 @@ struct ContentView: View {
             .padding()
             .navigationTitle("VocabGlass")
             .toolbar {
+                #if DEBUG
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink("Spike") { VoiceSpikeView(client: client) }
+                }
+                #endif
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         HistoryView(store: store)
