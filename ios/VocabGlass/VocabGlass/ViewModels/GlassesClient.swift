@@ -139,6 +139,12 @@ final class GlassesClient: ObservableObject {
 
         do {
             let session = try wearables.createSession(deviceSelector: selector)
+
+            // Watch for session errors before start(), not after addStream:
+            // if the device kills the session during startup, the reason
+            // only shows up here.
+            observeSessionErrors(session)
+
             try session.start()
             status = "starting session (now: \(session.state))"
 
@@ -150,6 +156,16 @@ final class GlassesClient: ObservableObject {
             // silent hang into a visible error.
             let deadline = ContinuousClock.now.advanced(by: .seconds(10))
             while session.state != .started {
+                if session.state == .stopped {
+                    // The device killed the session during startup. The
+                    // reason arrives on the error stream; give it a beat
+                    // to land before giving up.
+                    try await Task.sleep(for: .milliseconds(500))
+                    if lastError == nil { lastError = "session stopped during start (no error reported)" }
+                    cameraOn = false
+                    status = "tap Start camera"
+                    return
+                }
                 if ContinuousClock.now > deadline {
                     lastError = "session never reached started (state: \(session.state))"
                     session.stop()
@@ -168,9 +184,6 @@ final class GlassesClient: ObservableObject {
             }
             self.session = session
             self.stream = stream
-
-            // Surface why the device stops the session, if it does.
-            observeSessionErrors(session)
 
             stateToken = stream.statePublisher.listen { state in
                 Task { @MainActor [weak self] in
