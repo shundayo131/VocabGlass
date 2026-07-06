@@ -101,6 +101,18 @@ final class GlassesClient: ObservableObject {
         Task { _ = try? await wearables.handleUrl(url) }
     }
 
+    // Open the Meta AI app on the update screen for the glasses-side DAT
+    // app. Needed when the session dies with an update-required error.
+    func openGlassesAppUpdate() {
+        Task {
+            do {
+                try await wearables.openDATGlassesAppUpdate()
+            } catch {
+                lastError = "update navigation: \(error.localizedDescription)"
+            }
+        }
+    }
+
     // MARK: - Streaming
 
     private func startStream() async {

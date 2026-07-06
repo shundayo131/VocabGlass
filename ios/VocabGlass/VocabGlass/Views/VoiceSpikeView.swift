@@ -40,6 +40,7 @@ struct VoiceSpikeView: View {
                   }
                   Button("Capture photo") { client.capturePhoto() }
                       .disabled(!client.isReady)
+                  Button("Update glasses DAT app") { client.openGlassesAppUpdate() }
                   if let image = client.capturedImage {
                       Image(uiImage: image)
                           .resizable()
