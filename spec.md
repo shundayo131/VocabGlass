@@ -1,7 +1,8 @@
 # Learn Vocabulary with Glass — v2 Spec
 
-Status: v1 vertical slice complete and verified on real glasses. v2 (voice
-sessions + learning features) planned, not started. Last updated 2026-07-02.
+Status: v1 vertical slice complete and verified on real glasses. v2 in
+progress: M7 audio spike passed on device (go for voice sessions), next is
+M8 Gemini Live plumbing. Last updated 2026-07-06.
 
 ## 1. Vision
 
@@ -152,6 +153,32 @@ What we verified before building, and the constraints that shape the code:
 References: Meta "Microphones and speakers" and "Integration overview" docs,
 meta-wearables-dat-ios discussions #116 and #141. Links in section 10.
 
+### Spike results (M7, verified on device 2026-07-06)
+
+Setup: Ray-Ban Meta (Gen 2), glasses firmware v126, glasses-side DAT app
+updated to the SDK 0.8 version, iPhone on iOS 26.6, DAT SDK 0.8.0.
+
+- HFP route, loopback recording, and playback through the glasses all work.
+- The DAT camera stream and HFP recording run at the same time; photo
+  capture works while audio is active.
+- Reverse setup order (camera stream first, HFP after) also worked; the
+  documented ordering rule did not bite on this firmware. Keep the
+  recommended order anyway.
+- Background: with UIBackgroundModes audio (plus the existing
+  bluetooth-central and external-accessory modes), recording and the camera
+  stream both survive the screen locking.
+- "Hey Meta" still triggers during a session and takes the microphone; our
+  recording stops. Mitigation: turn the wake word off during sessions (Meta
+  AI app setting), and M9 should add route-change recovery so the session
+  can heal itself.
+- 0.8 migration gotcha: DAT 0.8 requires updating the glasses-side DAT app
+  (Meta AI app > device > App Info > Install). Until then, every session
+  dies right after start. The failure is silent unless the session error
+  stream is observed before start(). GlassesClient now observes errors
+  before start, waits for .started by polling the live state with a 10 s
+  timeout instead of awaiting stateStream() (whose events can be missed),
+  and has openGlassesAppUpdate() to jump to the Meta AI update screen.
+
 ## 7. Data model
 
 `LearningCard` (the worker's response): `word`, `pronunciation`, `translation`
@@ -184,16 +211,9 @@ everything after builds on main.
 - M6 — UI mockups. Mock up the main screens before building: home (session
   start), active session, deck, card detail/edit, flashcard review. Agree on
   layout and flow, then use them as the reference for M9 and later UI work.
-- M7 — Audio spike (branch `spike/voice-audio`). A debug-only screen plus a
-  small `AudioSpike` helper: configure the Bluetooth HFP route, confirm the
-  route lands on the glasses, record and play back a loop, then run the
-  existing camera stream and photo capture at the same time using the section
-  6 ordering rule. Also test backgrounding: with `UIBackgroundModes: audio`
-  set, lock the phone mid-session and confirm audio and the DAT stream keep
-  running and capture still works. Exit criteria: route is stable for minutes,
-  capture works during audio, 8 kHz quality judged acceptable by ear, session
-  survives the screen lock. Findings go into section 6; the branch is then
-  deleted.
+- M7 — Audio spike. Done 2026-07-06; all exit criteria passed, results in
+  section 6. The debug-only spike screen (VoiceSpikeView + AudioSpike) stays
+  in the app as a diagnostics tool until the M13 cleanup.
 - M8 — Gemini Live plumbing. Worker `POST /token` minting ephemeral tokens;
   `GeminiLiveClient` in the app: WebSocket, audio up and down, tool
   declarations (`capture_object`, `end_session`). Testable with the iPhone
@@ -221,9 +241,9 @@ everything after builds on main.
 - Gemini Live specifics: exact session duration limits, ephemeral token TTL,
   input audio format expectations at 8 kHz, and interruption behavior. Resolve
   in M10.
-- Whether "Hey Meta" or other glasses features contend with an active DAT
-  session plus HFP in practice. Watch during M6/M11; docs say only one session
-  runs at a time and some device features pause during it.
+- Resolved in M7: "Hey Meta" does contend; it takes the mic and stops our
+  recording. Open follow-up: how well the M9 route-change recovery heals the
+  session after an intervention.
 - Pronunciation content for French and Spanish: empty, or light IPA. Decide
   in M9 with prompt tuning.
 - Live viewfinder while aiming: still deferred; revisit if voice capture makes
