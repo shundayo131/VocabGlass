@@ -48,7 +48,7 @@ Claude -> { word, pinyin, translation, example } -> saved card
 
 ## Tech stack
 
-- **iOS app**: Swift, SwiftUI, iOS 16+ (MVVM: Models / ViewModels / Views)
+- **iOS app**: Swift, SwiftUI, iOS 26+ (MVVM: Models / ViewModels / Views)
 - **Glasses**: Meta Wearables DAT SDK 0.7.0 (MWDATCore, MWDATCamera,
   MWDATMockDevice)
 - **Backend**: Cloudflare Workers with Hono

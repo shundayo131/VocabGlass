@@ -34,8 +34,9 @@ code comments, docs, and commit messages.
 ## Tech stack
 
 - iOS app in Swift and SwiftUI. Edited in VS Code with Claude Code. Tested in
-  Xcode. iOS 16+ deployment target, Xcode 15+.
-- Meta Wearables DAT, version 0.7.0 (Swift Package Manager).
+  Xcode. iOS 26+ deployment target. Prefer current APIs over deprecated ones
+  kept around for older iOS versions.
+- Meta Wearables DAT, version 0.8.0 (Swift Package Manager).
 - Backend: Cloudflare Workers as the API endpoint.
 - AI: Anthropic Claude API as the multimodal model. The Worker takes the image
   plus any instruction, calls Claude with the image, and returns the generated
