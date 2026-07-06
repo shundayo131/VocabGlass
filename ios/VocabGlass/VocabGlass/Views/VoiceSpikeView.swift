@@ -30,6 +30,11 @@ struct VoiceSpikeView: View {
                   Text(client.status)
                       .font(.footnote)
                       .foregroundStyle(.secondary)
+                  if let error = client.lastError {
+                      Text(error)
+                          .font(.footnote)
+                          .foregroundStyle(.red)
+                  }
                   Button(client.cameraOn ? "Stop camera" : "Start camera") {
                       client.cameraOn ? client.stopCamera() : client.startCamera()
                   }

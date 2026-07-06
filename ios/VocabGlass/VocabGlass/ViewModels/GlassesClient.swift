@@ -127,22 +127,38 @@ final class GlassesClient: ObservableObject {
 
         // AutoDeviceSelector resolves an eligible device asynchronously.
         // Creating a session before a device is active throws noEligibleDevice,
-        // so wait until the selector reports one.
-        status = "waiting for device"
-        for await device in selector.activeDeviceStream() {
-            if device != nil { break }
+        // so wait until the selector reports one. Check the current value
+        // first: the stream only delivers changes, and the device may
+        // already be active.
+        if selector.activeDevice == nil {
+            status = "waiting for device"
+            for await device in selector.activeDeviceStream() {
+                if device != nil { break }
+            }
         }
 
         do {
             let session = try wearables.createSession(deviceSelector: selector)
             try session.start()
-            status = "starting session"
+            status = "starting session (now: \(session.state))"
 
-            // stateStream does not buffer, so check the current state first.
-            if session.state != .started {
-                for await state in session.stateStream() {
-                    if state == .started { break }
+            // Wait for .started by polling the live state. Waiting on
+            // stateStream() can hang forever if the transition happens
+            // before the subscription (seen on device with DAT 0.8):
+            // the event is gone and no new one ever comes. Polling the
+            // property cannot miss anything, and a timeout turns a
+            // silent hang into a visible error.
+            let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+            while session.state != .started {
+                if ContinuousClock.now > deadline {
+                    lastError = "session never reached started (state: \(session.state))"
+                    session.stop()
+                    cameraOn = false
+                    status = "tap Start camera"
+                    return
                 }
+                status = "session state: \(session.state)"
+                try await Task.sleep(for: .milliseconds(200))
             }
 
             let config = StreamConfiguration(videoCodec: .raw, resolution: .medium, frameRate: 24)
