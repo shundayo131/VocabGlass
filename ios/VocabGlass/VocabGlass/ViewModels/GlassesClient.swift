@@ -241,6 +241,73 @@ final class GlassesClient: ObservableObject {
         stream?.capturePhoto(format: .jpeg)
     }
 
+    // One-shot capture continuation. Non-nil while a captureAndWait is in fight
+    // finishCapture empties it, which is what guarantees the continuation is resumed exactly once
+    private var pendingCapture: CheckedContinuation<UIImage, Error>?
+    private var pendingCaptureToken: (any AnyListenerToken)?
+    private var pendingCaptureTimeout: Task<Void, Never>? 
+
+    // Capture a photo and wait for it to arrive. 
+    // Bridges the fire-and-forget capturePhoto + publisher pair into one awaitable call for the session controller
+    func captureAndWait(timeoutSeconds: TimeInterval = 10) async throws -> UIImage{
+        guard let stream, isReady else {
+            throw NSError(domain: "GlassesClient", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "camera is not streaming"])
+        }
+        guard pendingCapture == nil else {
+            throw NSError(domain: "GlassesClient", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "capture already in progress"])
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in 
+            pendingCapture = continuation 
+
+            // Subscribe before triggering, so a fast photo cannot slip past 
+            pendingCaptureToken = stream.photoDataPublisher.listen { photo in
+                Task { @MainActor [weak self] in
+                    self?.capturedImage = UIImage(data: photo.data)
+                    self?.status = "photo captured"
+                    self?.finishCapture(with: .success(photo.data))
+                }
+            }
+
+            // The photo and this timeout race
+            // finishCapture decides the winner and ignores the loser 
+            pendingCaptureTimeout = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(timeoutSeconds))
+                self?.finishCapture(with: .failure(NSError(
+                    domain: "GlassesClient", code: 3,
+                    userInfo: [NSLocalizedDescriptionKey: "capture timed out"])))
+            }
+
+            status = "capturing..."
+            stream.capturePhoto(format: .jpeg)
+        }
+    }
+
+    // The single exit for a pending capture.
+    // First caller wins; everyone after finds pendingCapture nil and does nothing
+    private func finishCapture(with result: Result<Data, Error>) {
+        guard let continuation = pendingCapture else { return }
+        pendingCapture = nil
+        pendingCaptureToken = nil
+        pendingCaptureTimeout?.cancel()
+        pendingCaptureTimeout = nil
+
+        switch result {
+        case .success(let data):
+            if let image = UIImage(data: data) {
+                continuation.resume(returning: image)
+            } else {
+                continuation.resume(throwing: NSError(
+                    domain: "GlassesClient", code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "photo data was not an image"]))
+            }
+        case .failure(let error):
+            continuation.resume(throwing: error)
+        }
+    }
+
     // MARK: - Card generation
 
     func generateCard() {

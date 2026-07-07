@@ -50,6 +50,17 @@ struct VoiceSpikeView: View {
                           .scaledToFit()
                           .frame(maxHeight: 160)
                   }
+                  Button("Capture and wait (T1 test)") {
+                      Task {
+                          do {
+                              _ = try await client.captureAndWait()
+                              client.status = "captureAndWait: got photo"
+                          } catch {
+                              client.status = "captureAndWait: \(error.localizedDescription)"
+                          }
+                      }
+                  }
+                  .disabled(!client.isReady)
               }
               Section("Gemini Live") {
                 Text(gemini.status)
