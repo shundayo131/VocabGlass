@@ -98,41 +98,18 @@ final class GeminiLiveClient: ObservableObject {
 
     // MARK: - Setup
 
-    // NON_BLOCKING lets the model keep talking while the app runs the tool. 
+    // With a constrained ephemeral token, the system prompt, tools, and
+    // response modality are baked into the token by the worker (the
+    // constrained method ignores them if sent from here). The setup
+    // message only names the model.
     private func sendSetup(model: String) {
         let setup: [String: Any] = [
             "setup": [
                 "model": "models/\(model)",
-                "generationConfig": [
-                    "responseModalities": ["AUDIO"],
-                ],
-                "systemInstruction": [
-                    "parts": [["text": Self.systemPrompt]],
-                ],
-                "tools": [[
-                        "functionDeclarations": [
-                            [
-                                "name": "capture_object",
-                                "description": "Capture a photo of what the user is looking at and save it as a vocabulary entry. Call this when the user asks to capture, save, or learn the thing they see.",
-                                "behavior": "NON_BLOCKING",
-                            ],
-                            [
-                                "name": "end_session",
-                                "description": "End the current learning session. Call this when the user says they are done or asks to end the session.",
-                                "behavior": "NON_BLOCKING",
-                            ],
-                        ],
-                ]],
             ],
         ]
         sendJSON(setup)
     }
-
-    static let systemPrompt = """
-        You are VocabGlass, a voice assistant for a language learning session. The user wears camera glasses and looks at real objects. \
-        Keep every reply to one short sentence. When the user asks to capture something, acknowledge briefly and call capture_object. \
-        When a tool result with a saved entry arrives, tell the user the word and its meaning. When the user wants to stop, call end_session and say goodbye.
-    """
 
     // MARK: - Sending 
 

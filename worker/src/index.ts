@@ -12,7 +12,7 @@
 // Imports: Hono for routing, the Anthropic SDK for the Claude call.
 import { Hono } from 'hono';
 import Anthropic from '@anthropic-ai/sdk';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality, Behavior } from '@google/genai';
 
 // Bindings: the worker's environment, holding the Anthropic API key secret.
 type Bindings = {
@@ -96,10 +96,35 @@ app.post('/generate', async (c) => {
   }
 });
 
+// The session brain. The system prompt and tools are baked into the
+// ephemeral token via liveConnectConstraints, not sent by the app: the
+// constrained WebSocket method ignores client-side setup for these
+// fields, and baking them in also means a leaked token can only start
+// a VocabGlass session, not a general-purpose Gemini one.
+const LIVE_SYSTEM_PROMPT = `You are VocabGlass, a voice assistant for a language learning session. The user wears camera glasses and looks at real objects. Keep every reply to one short sentence. When the user asks to capture something, acknowledge briefly and call capture_object. When a tool result with a saved entry arrives, tell the user the word and its meaning. When the user wants to stop, call end_session and say goodbye.`;
+
+// NON_BLOCKING lets the model keep talking while the app runs the tool.
+// Sync-only models (3.1 today) ignore it.
+const LIVE_TOOLS = [{
+  functionDeclarations: [
+    {
+      name: 'capture_object',
+      description: 'Capture a photo of what the user is looking at and save it as a vocabulary entry. Call this when the user asks to capture, save, or learn the thing they see.',
+      behavior: Behavior.NON_BLOCKING,
+    },
+    {
+      name: 'end_session',
+      description: 'End the current learning session. Call this when the user says they are done or asks to end the session.',
+      behavior: Behavior.NON_BLOCKING,
+    },
+  ],
+}];
+
 // POST /token : mint a single-use ephemeral token for the Gemini Live API.
 // The iOS app connects to Gemini directly with this token
-// so the real API key is never exposed to the client. 
-// The token is locked to our model and a new connection must start within 2 minutes of minting. 
+// so the real API key is never exposed to the client.
+// The token is locked to our model, prompt, and tools, and a new
+// connection must start within 2 minutes of minting.
 app.post('/token', async (c) => {
   // Ephemeral tokens only exist on the v1alpha API surface 
   const ai = new GoogleGenAI({ 
@@ -115,7 +140,14 @@ app.post('/token', async (c) => {
         // Messages allowed for 12 minutes (10 minites + 2 minutes setup/buffer)
         expireTime: new Date(now + 12 * 60_000).toISOString(),
         newSessionExpireTime: new Date(now + 2 * 60_000).toISOString(),
-        liveConnectConstraints: { model: c.env.GEMINI_LIVE_MODEL },
+        liveConnectConstraints: {
+          model: c.env.GEMINI_LIVE_MODEL,
+          config: {
+            responseModalities: [Modality.AUDIO],
+            systemInstruction: LIVE_SYSTEM_PROMPT,
+            tools: LIVE_TOOLS,
+          },
+        },
       }
     });
     return c.json({ token: token.name, model: c.env.GEMINI_LIVE_MODEL });
