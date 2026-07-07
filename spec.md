@@ -1,8 +1,9 @@
 # Learn Vocabulary with Glass — v2 Spec
 
 Status: v1 vertical slice complete and verified on real glasses. v2 in
-progress: M7 audio spike passed on device (go for voice sessions), next is
-M8 Gemini Live plumbing. Last updated 2026-07-06.
+progress: M7 audio spike and M8 Gemini Live plumbing done and verified on
+device (voice both ways, tool calls, tool responses). Next is M9 voice
+session orchestration. Last updated 2026-07-07.
 
 ## 1. Vision
 
@@ -214,11 +215,13 @@ everything after builds on main.
 - M7 — Audio spike. Done 2026-07-06; all exit criteria passed, results in
   section 6. The debug-only spike screen (VoiceSpikeView + AudioSpike) stays
   in the app as a diagnostics tool until the M13 cleanup.
-- M8 — Gemini Live plumbing. Worker `POST /token` minting ephemeral tokens;
-  `GeminiLiveClient` in the app: WebSocket, audio up and down, tool
-  declarations (`capture_object`, `end_session`). Testable with the iPhone
-  mic, no glasses needed. Confirm session limits and token TTL cover 10
-  minutes.
+- M8 — Gemini Live plumbing. Done 2026-07-07, verified on device with the
+  iPhone mic: token mint, WebSocket connect, two-way audio, tool calls, and
+  spoken tool results. Findings that shaped the code: ephemeral tokens use
+  the BidiGenerateContentConstrained method; system prompt and tools must be
+  baked into the token constraints (client setup is ignored for them);
+  scheduling sits next to id and name in a function response. Connection
+  lifetime is about 10 minutes with a GoAway warning, handled in M9.
 - M9 — Voice session orchestration. `SessionController` ties DAT, audio, and
   Gemini together per the section 5 flow, including the HFP-before-start
   ordering, the 10 minute cap, background continuation, and teardown from all
