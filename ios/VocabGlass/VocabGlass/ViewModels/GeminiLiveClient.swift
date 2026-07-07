@@ -131,17 +131,19 @@ final class GeminiLiveClient: ObservableObject {
         ])
     }
 
-    // Send the result of an app action back so Gemini can speak it 
+    // Send the result of an app action back so Gemini can speak it.
+    // scheduling: INTERRUPT asks the async model to speak the result right
+    // away; it sits next to id and name, not inside response.
     func sendToolResponse(id: String, name: String, result: [String: Any]) {
-        var response = result
-        // Ask the async model to speak the result right away. Sync models ignore this. 
-        // Field placement to be confirmed while testing.
-        response["scheduling"] = "INTERRUPT"
-        // send JSON object over the WebSocket to Gemini Live
         sendJSON([
             "toolResponse": [
                 "functionResponses": [
-                    ["id": id, "name": name, "response": response],
+                    [
+                        "id": id,
+                        "name": name,
+                        "response": result,
+                        "scheduling": "INTERRUPT",
+                    ],
                 ]
             ]
         ])
