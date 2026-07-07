@@ -31,6 +31,7 @@ final class GeminiLiveClient: ObservableObject {
 
     private var socket: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
+    private var audioChunksSent = 0
 
     private struct TokenResponse: Decodable {
         let token: String
@@ -135,8 +136,14 @@ final class GeminiLiveClient: ObservableObject {
 
     // MARK: - Sending 
 
-    // Called by the audio engine with 16kHz PCM16 mono chunks 
+    // Called by the audio engine with 16kHz PCM16 mono chunks
     func sendAudioChunk(_ pcm: Data) {
+        #if DEBUG
+        audioChunksSent += 1
+        if audioChunksSent % 20 == 1 {
+            print("gemini -> audio chunk #\(audioChunksSent), \(pcm.count) bytes, socket: \(socket == nil ? "nil" : "open")")
+        }
+        #endif
         sendJSON([
             "realtimeInput": [
                 "audio": [

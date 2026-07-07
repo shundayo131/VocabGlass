@@ -23,6 +23,7 @@ final class LiveAudioEngine {
     private let engine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
     private var inputConverter: AVAudioConverter?
+    private var chunkCount = 0
     
     // What Gemini expects from us 
     private let sendFormat = AVAudioFormat(
@@ -107,6 +108,16 @@ final class LiveAudioEngine {
             bytes: channel[0],
             count: Int(out.frameLength) * MemoryLayout<Int16>.size
         )
+        #if DEBUG
+        // Every ~2 s: prove the tap runs and check the signal level.
+        // peak 0 means the mic is silent; a few thousand means real voice.
+        chunkCount += 1
+        if chunkCount % 20 == 1 {
+            var peak: Int16 = 0
+            for i in 0..<Int(out.frameLength) { peak = max(peak, abs(channel[0][i])) }
+            print("mic chunk #\(chunkCount): \(data.count) bytes, peak \(peak)")
+        }
+        #endif
         onMicChunk?(data)
     }
 
