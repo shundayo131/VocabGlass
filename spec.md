@@ -241,11 +241,11 @@ everything after builds on main.
 - Gemini Live specifics: exact session duration limits, ephemeral token TTL,
   input audio format expectations at 8 kHz, and interruption behavior. Resolve
   during the voice milestones.
-- Harden /token (from the M8 security review): the ephemeral token pins only
-  the model, so anyone can mint a token and run a general-purpose 12 minute
-  Gemini session on our billing. liveConnectConstraints.config can pin the
-  system instruction, tools, and modalities server-side, turning the endpoint
-  into a VocabGlass-only session. Do when touching the session setup in M9.
+- Resolved in M8: /token now bakes the system prompt, tools, and modality
+  into liveConnectConstraints.config. This was required anyway, because the
+  constrained WebSocket method ignores client-side setup for those fields
+  (found when Gemini reported having no tools), and it also locks a leaked
+  token to VocabGlass-only sessions.
 - Resolved in M7: "Hey Meta" does contend; it takes the mic and stops our
   recording. Open follow-up: how well the M9 route-change recovery heals the
   session after an intervention.
