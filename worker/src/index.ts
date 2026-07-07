@@ -120,7 +120,10 @@ app.post('/token', async (c) => {
     });
     return c.json({ token: token.name, model: c.env.GEMINI_LIVE_MODEL });
   } catch (err) {
-    return c.json({ error: `token request failed: ${String(err)}` }, 502);
+    // Log the upstream detail server-side only; the raw Google error
+    // exposes backend state to anonymous callers.
+    console.error('token request failed:', err);
+    return c.json({ error: 'token request failed' }, 502);
   }
 });
 
