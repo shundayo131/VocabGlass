@@ -166,8 +166,13 @@ final class GeminiLiveClient: ObservableObject {
 
     // MARK: - Receiving
 
-    // Listen to Gemini response and take actions 
+    // Start the receive loop: waits for messages one at a time and
+    // routes each to handle(). Returns immediately; the loop runs
+    // until disconnect or a socket error.
     private func listen() {
+        // Task starts running as soon as it is created. The loop exits
+        // when the client is deallocated, the socket is cleared, or
+        // disconnect() cancels this task.
         receiveTask = Task { [weak self] in
             while let self, let socket = self.socket, !Task.isCancelled {
                 do {
