@@ -44,7 +44,7 @@ final class AudioSpike: NSObject, ObservableObject {
             // On older SDKs the option is named .allowBluetooth instead of .allowBluetoothHFP 
             try session.setCategory(.playAndRecord, 
                                     mode: .voiceChat, 
-                                    options: [.allowBluetoothHFP]
+                                    options: [.allowBluetoothHFP, .defaultToSpeaker]
             )
             // Activate the session with the defined category and mode 
             try session.setActive(true)

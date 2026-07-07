@@ -19,7 +19,7 @@ final class GeminiLiveClient: ObservableObject {
     @Published var status = "disconnected"
     @Published var isConnected = false
     @Published var lastToolCall: String?
-
+    @Published var pendingToolCall: (id: String, name: String)?
 
     // Wired up by the owner: called when Gemini asks the app to act 
     var onToolCall: ((_ id: String, _ name: String) -> Void)?
@@ -215,6 +215,10 @@ final class GeminiLiveClient: ObservableObject {
         guard let message = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
         }
+        #if DEBUG
+        // See what kinds of messages arrive (toolCall, serverContent...).
+        print("gemini <- keys:", Array(message.keys))
+        #endif
 
         // First reply after setup: the session is live
         if message["setupComplete"] != nil {
@@ -231,6 +235,7 @@ final class GeminiLiveClient: ObservableObject {
                       let name = call["name"] as? String else { continue }
                 lastToolCall = name
                 status = "tool call: \(name)"
+                pendingToolCall = (id, name)
                 onToolCall?(id, name)
             }
             return

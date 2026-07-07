@@ -13,6 +13,8 @@ struct VoiceSpikeView: View {
     @StateObject private var gemini = GeminiLiveClient()
     @ObservedObject var client: GlassesClient 
 
+    private let audio = LiveAudioEngine()
+
     var body: some View {
         List {
             Section("Audio (Bluetooth HFP)") {
@@ -58,6 +60,37 @@ struct VoiceSpikeView: View {
                 }
                 Button(gemini.isConnected ? "Disconnect Gemini" : "Connect Gemini") {
                     gemini.isConnected ? gemini.disconnect() : gemini.connect()
+                }
+                // Voice chat 
+                Button(audio.isRunning ? "Stop voice chat" : "Start voice chat") {
+                    if audio.isRunning {
+                        audio.stop()
+                    } else {
+                        // Mic chunks go up, reply chunks come back down.
+                        audio.onMicChunk = { data in
+                            Task { @MainActor in gemini.sendAudioChunk(data) }
+                        }
+                        gemini.onAudioChunk = { data in audio.play(data) }
+                        do {
+                            try audio.start()
+                        } catch {
+                            gemini.status = "audio engine failed: \(error.localizedDescription)"
+                        }
+                    }
+                }
+                .disabled(!gemini.isConnected)
+
+                if let pending = gemini.pendingToolCall {
+                    Button("Send dummy result for \(pending.name)") {
+                        gemini.sendToolResponse(id: pending.id, name: pending.name, result: [
+                            "status": "saved",
+                            "word": "苹果",
+                            "pronunciation": "píngguǒ",
+                            "translation": "apple",
+                            "example": "我想吃苹果。",
+                        ])
+                        gemini.pendingToolCall = nil
+                    }
                 }
             }
         }

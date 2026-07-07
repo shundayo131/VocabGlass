@@ -1,0 +1,133 @@
+//
+//  LiveAudioEngine.swift
+//  VocabGlass
+//
+//  Moves audio between the device microphone and a Gemini Live session:
+//  taps the mic and emits 16 kHz PCM16 mono chunks, and plays back the
+//  24 kHz PCM16 chunks Gemini sends. Knows nothing about WebSockets.
+//
+//  Not @MainActor: the mic tap runs on a realtime audio thread, so the
+//  consumer hops to the main actor before touching UI or the socket.
+//
+
+import Foundation 
+import AVFoundation 
+
+final class LiveAudioEngine {
+
+    // Chunks of mic audio ready to send (16 kHz PCM16 mono)
+    var onMicChunk: ((Data) -> Void)? 
+
+    private(set) var isRunning = false
+
+    private let engine = AVAudioEngine()
+    private let playerNode = AVAudioPlayerNode()
+    private var inputConverter: AVAudioConverter?
+    
+    // What Gemini expects from us 
+    private let sendFormat = AVAudioFormat(
+        commonFormat: .pcmFormatInt16,
+        sampleRate: 16_000,
+        channels: 1,
+        interleaved: true
+    )!
+    
+
+    // What Gemini sends back as floats for the mixer 
+    private let playFormat = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32,
+        sampleRate: 24_000,
+        channels: 1,
+        interleaved: false
+    )!
+
+    // MARK: - Lifecycle 
+    func start() throws {
+        guard !isRunning else { return }
+
+        engine.attach(playerNode)
+        engine.connect(playerNode, to: engine.mainMixerNode, format: playFormat)
+
+        let input = engine.inputNode
+        let micFormat = input.outputFormat(forBus: 0)
+        // A dead audio device (broken simulator audio, missing mic)
+        // reports a 0 Hz format; installTap would crash the app on it.
+        guard micFormat.sampleRate > 0, micFormat.channelCount > 0 else {
+            throw NSError(domain: "LiveAudioEngine", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey:
+                            "no usable microphone input (broken audio device?)"])
+        }
+        inputConverter = AVAudioConverter(from: micFormat, to: sendFormat)
+
+        // Roughly 100ms of audio per callback: low latency 
+        // without spamming the socket with tiny messages
+        input.installTap(onBus: 0, bufferSize: 4096, format: micFormat) {
+            [weak self] buffer, _ in self?.convertAndForward(buffer)
+        }
+
+        try engine.start()
+        playerNode.play()
+        isRunning = true
+    }
+
+    func stop() {
+        guard isRunning else { return }
+        engine.inputNode.removeTap(onBus: 0)
+        playerNode.stop()
+        engine.stop()
+        isRunning = false
+    }
+
+    // MARK: - Mic -> Gemini 
+
+    // Runs on the audio thread. Resample the mic buffer to 16 kHz Int16
+    // and hand the raw bytes to the consumer
+    private func convertAndForward(_ buffer: AVAudioPCMBuffer) {
+        guard let converter = inputConverter else { return }
+
+        let ratio = sendFormat.sampleRate / buffer.format.sampleRate
+        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 16 
+        guard let out = AVAudioPCMBuffer(pcmFormat: sendFormat, frameCapacity: capacity) else { return }
+
+        // The converter pulls input through this closure; feed it our one buffer,
+        // then report that no more data is coming for this call 
+        var fed = false 
+        converter.convert(to: out, error: nil) { _, outStatus in
+            if fed {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            fed = true
+            outStatus.pointee = .haveData
+            return buffer
+        }
+
+        guard out.frameLength > 0, let channel = out.int16ChannelData else { return }
+        let data = Data(
+            bytes: channel[0],
+            count: Int(out.frameLength) * MemoryLayout<Int16>.size
+        )
+        onMicChunk?(data)
+    }
+
+    // MARK: - Gemini -> speaker
+    
+    // Queue a 24 kHz PCM16 chunk for playback. 
+    // Chunks arrive faster than real time; 
+    // the player node plays them back to back in order
+    func play(_ pcm: Data) {
+        let frames = AVAudioFrameCount(pcm.count / MemoryLayout<Int16>.size)
+        guard frames > 0,
+            let buffer = AVAudioPCMBuffer(pcmFormat: playFormat, frameCapacity: frames) else { return }
+        buffer.frameLength = frames
+
+        pcm.withUnsafeBytes { raw in 
+            let int16 = raw.bindMemory(to: Int16.self)
+            let out = buffer.floatChannelData![0]
+            for i in 0..<Int(frames) {
+                out[i] = Float(int16[i]) / 32768.0
+            }
+        }
+        playerNode.scheduleBuffer(buffer)
+    }
+}
