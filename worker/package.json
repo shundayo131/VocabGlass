@@ -7,11 +7,12 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
+    "@google/genai": "^2.10.0",
     "hono": "latest"
   },
   "devDependencies": {
-    "wrangler": "latest",
+    "@cloudflare/workers-types": "latest",
     "typescript": "latest",
-    "@cloudflare/workers-types": "latest"
+    "wrangler": "latest"
   }
 }

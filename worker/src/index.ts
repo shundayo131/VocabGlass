@@ -12,10 +12,13 @@
 // Imports: Hono for routing, the Anthropic SDK for the Claude call.
 import { Hono } from 'hono';
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenAI } from '@google/genai';
 
 // Bindings: the worker's environment, holding the Anthropic API key secret.
 type Bindings = {
-  ANTHROPIC_API_KEY: string; 
+  ANTHROPIC_API_KEY: string;  // wrangler secret
+  GEMINI_API_KEY: string;     // wrangler secret 
+  GEMINI_LIVE_MODEL: string;  // wrangler.toml [vars]
 }
 
 // CARD_SCHEMA: the exact JSON shape Claude must return. With structured
@@ -90,6 +93,34 @@ app.post('/generate', async (c) => {
     return c.body(text, 200, { 'content-type': 'application/json' });
   } catch (err) {
     return c.json({ error: `claude request failed: ${String(err)}` }, 502);
+  }
+});
+
+// POST /token : mint a single-use ephemeral token for the Gemini Live API.
+// The iOS app connects to Gemini directly with this token
+// so the real API key is never exposed to the client. 
+// The token is locked to our model and a new connection must start within 2 minutes of minting. 
+app.post('/token', async (c) => {
+  // Ephemeral tokens only exist on the v1alpha API surface 
+  const ai = new GoogleGenAI({ 
+    apiKey: c.env.GEMINI_API_KEY, 
+    httpOptions: {apiVersion: 'v1alpha'} 
+  }); 
+
+  try {
+    const now = Date.now();
+    const token = await ai.authTokens.create({
+      config: {
+        uses: 1,
+        // Messages allowed for 12 minutes (10 minites + 2 minutes setup/buffer)
+        expireTime: new Date(now + 12 * 60_000).toISOString(),
+        newSessionExpireTime: new Date(now + 2 * 60_000).toISOString(),
+        liveConnectConstraints: { model: c.env.GEMINI_LIVE_MODEL },
+      }
+    });
+    return c.json({ token: token.name, model: c.env.GEMINI_LIVE_MODEL });
+  } catch (err) {
+    return c.json({ error: `token request failed: ${String(err)}` }, 502);
   }
 });
 

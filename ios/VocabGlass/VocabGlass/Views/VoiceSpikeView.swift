@@ -10,6 +10,7 @@ import SwiftUI
 
 struct VoiceSpikeView: View {
     @StateObject private var spike = AudioSpike()
+    @StateObject private var gemini = GeminiLiveClient()
     @ObservedObject var client: GlassesClient 
 
     var body: some View {
@@ -48,6 +49,17 @@ struct VoiceSpikeView: View {
                           .frame(maxHeight: 160)
                   }
               }
+              Section("Gemini Live") {
+                Text(gemini.status)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                if let tool = gemini.lastToolCall {
+                    Text("last tool call: \(tool)").font(.footnote)
+                }
+                Button(gemini.isConnected ? "Disconnect Gemini" : "Connect Gemini") {
+                    gemini.isConnected ? gemini.disconnect() : gemini.connect()
+                }
+            }
         }
         .navigationTitle("Voice Spike")
         .onAppear { spike.observeRouteChanges() }
