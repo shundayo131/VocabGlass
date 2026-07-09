@@ -15,7 +15,8 @@ import AVFoundation
 
 final class LiveAudioEngine {
 
-    // Chunks of mic audio ready to send (16 kHz PCM16 mono)
+    // Callback invoked when a chunk of mic audio is ready to send.
+    // Audio format: 16 kHz, PCM16, mono.
     var onMicChunk: ((Data) -> Void)? 
 
     private(set) var isRunning = false
