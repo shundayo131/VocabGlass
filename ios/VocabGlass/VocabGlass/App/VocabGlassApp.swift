@@ -18,7 +18,17 @@ struct VocabGlassApp: App {
     @StateObject private var session: SessionController
 
     init() {
-        // Build the dependencies as plain locals first, then wrap them.
+        // Configure the DAT SDK first: GlassesClient touches
+        // Wearables.shared in its init, and the SDK traps if that happens
+        // before configure().
+        do {
+            try Wearables.configure()
+            print("Wearables configured")
+        } catch {
+            print("Failed to configure Wearables: \(error)")
+        }
+
+        // Build the dependencies as plain locals, then wrap them.
         // @StateObject properties cannot reference each other directly
         // during init, so this is the standard dependency-injection dance.
         let client = GlassesClient()
@@ -26,13 +36,6 @@ struct VocabGlassApp: App {
         _client = StateObject(wrappedValue: client)
         _store = StateObject(wrappedValue: store)
         _session = StateObject(wrappedValue: SessionController(glasses: client, store: store))
-
-        do {
-            try Wearables.configure()
-            print("Wearables configured")
-        } catch {
-            print("Failed to configure Wearables: \(error)")
-        }
     }
 
     var body: some Scene {
