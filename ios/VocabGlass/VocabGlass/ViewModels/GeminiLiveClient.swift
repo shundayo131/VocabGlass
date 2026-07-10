@@ -39,6 +39,12 @@ final class GeminiLiveClient: ObservableObject {
     private var socket: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
     private var audioChunksSent = 0
+    private var droppedChunks = 0
+
+    // Audio sends waiting for the socket to confirm them. Each chunk is
+    // about 100 ms of audio, so 8 in flight is roughly a second of lag.
+    private var inFlightSends = 0
+    private let maxInFlightSends = 8
 
     private struct TokenResponse: Decodable {
         let token: String
@@ -120,12 +126,27 @@ final class GeminiLiveClient: ObservableObject {
 
     // MARK: - Sending 
 
-    // Called by the audio engine with 16kHz PCM16 mono chunks
+    // Called by the audio engine with 16kHz PCM16 mono chunks.
     func sendAudioChunk(_ pcm: Data) {
+        // Backpressure: when the uplink cannot drain in real time (weak
+        // network, radio contention with the DAT stream), queueing every
+        // chunk delays the whole conversation and it never recovers.
+        // Dropping keeps the session realtime at the cost of small gaps.
+        guard inFlightSends < maxInFlightSends else {
+            droppedChunks += 1
+            #if DEBUG
+            if droppedChunks % 20 == 1 {
+                print("gemini -> uplink congested, dropped \(droppedChunks) chunks so far")
+            }
+            #endif
+            return
+        }
+        inFlightSends += 1
+
         #if DEBUG
         audioChunksSent += 1
         if audioChunksSent % 20 == 1 {
-            print("gemini -> audio chunk #\(audioChunksSent), \(pcm.count) bytes, socket: \(socket == nil ? "nil" : "open")")
+            print("gemini -> audio chunk #\(audioChunksSent), \(pcm.count) bytes, in flight: \(inFlightSends)")
         }
         #endif
         sendJSON([
@@ -135,7 +156,9 @@ final class GeminiLiveClient: ObservableObject {
                     "data": pcm.base64EncodedString(),
                 ],
             ],
-        ])
+        ], onSent: { [weak self] in
+            self?.inFlightSends -= 1
+        })
     }
 
     // Send the result of an app action back so Gemini can speak it.
@@ -156,17 +179,23 @@ final class GeminiLiveClient: ObservableObject {
         ])
     }
 
-    // Send a JSON object over the WebSocket. Errors are surfaced to the UI.
-    private func sendJSON(_ object: [String: Any]) {
+    // Send a JSON object over the WebSocket. Errors are surfaced to the
+    // UI; onSent fires on the main actor when the socket confirms the
+    // send (used for audio backpressure accounting).
+    private func sendJSON(_ object: [String: Any], onSent: (() -> Void)? = nil) {
         guard let socket,
               let data = try? JSONSerialization.data(withJSONObject: object),
-              let text = String(data: data, encoding: .utf8) else { return }
+              let text = String(data: data, encoding: .utf8) else {
+            onSent?()
+            return
+        }
         socket.send(.string(text)) { error in
-            if let error {
-                Task { @MainActor [weak self] in
+            Task { @MainActor [weak self] in
+                onSent?()
+                if let error {
                     self?.status = "send failed: \(error.localizedDescription)"
                 }
-            }  
+            }
         }
     }
 
