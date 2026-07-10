@@ -40,7 +40,6 @@ final class SessionController: ObservableObject {
         self.store = store
     }
 
-    // MARK: - Start 
 
     func startSession() {
         guard state == .idle else { return } 
@@ -145,14 +144,14 @@ final class SessionController: ObservableObject {
     }
 
     // MARK: - Tool Calls 
+
+    // handle Gemini's toolcall request 
     private func handleToolCall(id: String, name: String) {
         switch name {
         case "capture_object":
-            // TODO: real capture -> generate -> save -> respond flow.
-            gemini.sendToolResponse(id: id, name: name, result: [
-                "status": "error",
-                "message": "capture not wired up yet",
-            ])
+            // The flow is async; run it outside the callback
+            // so audio and further messages keep flowing while we work
+            Task { await handleCapture(id: id, name: name)} 
 
         case "end_session":
             // Answer first so Gemini can say goodbye, then tear down.
@@ -163,6 +162,37 @@ final class SessionController: ObservableObject {
             gemini.sendToolResponse(id: id, name: name, result: [
                 "status": "error",
                 "message": "unknown tool \(name)",
+            ])
+        }
+    }
+
+    // photo -> card -> save -> spoken confirmation.
+    // Always answers the tool call, success or failure, 
+    // so Gemini never waits forever.
+    private func handleCapture(id: String, name: String) async {
+        do {
+            statusLine = "capturing photo"
+            let image = try await glasses.captureAndWait()
+
+            statusLine = "generating card"
+            let card = try await CardAPI.generate(from: image)
+
+            store.save(card, image: image)
+            statusLine = "saved: \(card.word)"
+
+            // respond to Gemini's tool call request 
+            gemini.sendToolResponse(id: id, name: name, result: [
+                "status": "saved",
+                "word": card.word,
+                "pronunciation": card.pinyin,
+                "translation": card.translation,
+                "example": card.example,
+            ])
+        } catch {
+            statusLine = "capture failed"
+            gemini.sendToolResponse(id: id, name: name, result: [
+                "status": "error",
+                "message": error.localizedDescription,
             ])
         }
     }
