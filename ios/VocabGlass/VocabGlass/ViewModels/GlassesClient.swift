@@ -194,12 +194,12 @@ final class GlassesClient: ObservableObject {
                 try await Task.sleep(for: .milliseconds(200))
             }
 
-            // Lowest useful stream settings: the app never renders frames,
-            // the stream only needs to be alive for capturePhoto. Anything
-            // higher wastes radio bandwidth that the voice session needs
-            // for its audio uplink (M9 finding: medium/24 starved the
-            // Gemini socket and the conversation lagged by a minute).
-            let config = StreamConfiguration(videoCodec: .raw, resolution: .low, frameRate: 15)
+            // medium/24 on purpose, do not "optimize" this down: with
+            // low/15 the glasses appear to move the stream onto the
+            // Bluetooth radio, which starves the HFP voice link and the
+            // mic goes silent (M9 finding). At medium/24 the stream rides
+            // the WiFi transport and voice stays alive.
+            let config = StreamConfiguration(videoCodec: .raw, resolution: .medium, frameRate: 24)
             guard let stream = try session.addStream(config: config) else {
                 lastError = "could not add stream"
                 return
