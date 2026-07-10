@@ -154,6 +154,23 @@ What we verified before building, and the constraints that shape the code:
 References: Meta "Microphones and speakers" and "Integration overview" docs,
 meta-wearables-dat-ios discussions #116 and #141. Links in section 10.
 
+### Voice session findings (M9, on device 2026-07-10)
+
+- Disconnect other Bluetooth audio (AirPods) before a session: two
+  headsets contend for HFP and the glasses voice link connects then
+  immediately drops.
+- Keep the camera stream at medium/24; do not lower it to save
+  bandwidth. At low/15 the glasses appear to move the stream onto the
+  Bluetooth radio, which starves the HFP voice link: the route still
+  shows the glasses, but the mic delivers silence.
+- Realtime discipline in both directions, or delay accumulates and never
+  recovers: drop mic chunks when the socket cannot drain in real time
+  (backpressure), and flush the playback queue the moment Gemini signals
+  "interrupted". Both are implemented; the interruption flush is what
+  fixed the conversation drifting a minute behind.
+- The session screen shows the newest deck card, including ones saved
+  before the session; filter to this session's cards in M13.
+
 ### Spike results (M7, verified on device 2026-07-06)
 
 Setup: Ray-Ban Meta (Gen 2), glasses firmware v126, glasses-side DAT app
