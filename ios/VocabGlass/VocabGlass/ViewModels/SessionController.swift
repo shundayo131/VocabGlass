@@ -216,6 +216,7 @@ final class SessionController: ObservableObject {
             ])
         } catch {
             statusLine = "capture failed"
+            lastError = "capture: \(error.localizedDescription)"
             gemini.sendToolResponse(id: id, name: name, result: [
                 "status": "error",
                 "message": error.localizedDescription,
