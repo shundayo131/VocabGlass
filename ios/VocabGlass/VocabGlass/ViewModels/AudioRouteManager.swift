@@ -33,11 +33,18 @@ final class AudioRouteManager: ObservableObject {
     // iPhone mic and speaker (useful for glasses-free testing)
     func activate() throws {
         let session = AVAudioSession.sharedInstance()
+        // No .defaultToSpeaker here: combined with HFP it can knock the
+        // just-established glasses link back to the phone speaker (mic
+        // connects then immediately drops, seen in M9 testing).
         try session.setCategory(.playAndRecord,
                         mode: .voiceChat,
-                        options: [.allowBluetoothHFP, .defaultToSpeaker])
+                        options: [.allowBluetoothHFP])
         try session.setActive(true)
-        preferGlassesInput()
+        if !preferGlassesInput() {
+            // No glasses: push output to the loud speaker (instead of the
+            // ear receiver) for glasses-free testing.
+            try? session.overrideOutputAudioPort(.speaker)
+        }
         startMonitoring()
         isActive = true
         updateRoute()

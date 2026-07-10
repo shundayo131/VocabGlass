@@ -42,21 +42,27 @@ final class AudioSpike: NSObject, ObservableObject {
         do {
             // .voiceChat mode tunes the session for two-way speach and enables echo cancellation. 
             // On older SDKs the option is named .allowBluetooth instead of .allowBluetoothHFP 
-            try session.setCategory(.playAndRecord, 
-                                    mode: .voiceChat, 
-                                    options: [.allowBluetoothHFP, .defaultToSpeaker]
+            // No .defaultToSpeaker here: combined with HFP it can knock
+            // the just-established glasses link back to the phone speaker
+            // (mic connects then immediately drops).
+            try session.setCategory(.playAndRecord,
+                                    mode: .voiceChat,
+                                    options: [.allowBluetoothHFP]
             )
-            // Activate the session with the defined category and mode 
+            // Activate the session with the defined category and mode
             try session.setActive(true)
 
-            // The category option only permits HFP. 
-            // To make sure the input is the glasses and not the iPhone mic, 
-            // set it exlicitly 
+            // The category option only permits HFP.
+            // To make sure the input is the glasses and not the iPhone mic,
+            // set it exlicitly
             if let hfp = session.availableInputs?
                 .first(where: { $0.portType == .bluetoothHFP }) {
                 try session.setPreferredInput(hfp)
                 status = "audio configured, input: \(hfp.portName)"
             } else {
+                // No glasses: push output to the loud speaker (instead of
+                // the ear receiver) for handheld testing.
+                try? session.overrideOutputAudioPort(.speaker)
                 status = "no Bluetooth HFP input found. Are the glasses connected as a headset?"
             }
             updateRouteText()
