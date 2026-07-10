@@ -123,9 +123,18 @@ final class LiveAudioEngine {
     }
 
     // MARK: - Gemini -> speaker
-    
-    // Queue a 24 kHz PCM16 chunk for playback. 
-    // Chunks arrive faster than real time; 
+
+    // Throw away everything still queued for playback. Called when the
+    // user talks over the model (Gemini sends "interrupted"): without
+    // this the stale audio keeps playing, the queue outgrows realtime,
+    // and the conversation drifts minutes behind.
+    func flushPlayback() {
+        playerNode.stop()   // discards all scheduled buffers
+        playerNode.play()   // ready for the next reply
+    }
+
+    // Queue a 24 kHz PCM16 chunk for playback.
+    // Chunks arrive faster than real time;
     // the player node plays them back to back in order
     func play(_ pcm: Data) {
         let frames = AVAudioFrameCount(pcm.count / MemoryLayout<Int16>.size)

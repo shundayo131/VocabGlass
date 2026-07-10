@@ -140,6 +140,10 @@ final class SessionController: ObservableObject {
         gemini.onAudioChunk = { [weak self] data in
             self?.audioEngine.play(data)
         }
+        // User talked over the model: drop the stale reply audio.
+        gemini.onInterrupted = { [weak self] in
+            self?.audioEngine.flushPlayback()
+        }
 
         // Tool calls into app actions.
         gemini.onToolCall = { [weak self] id, name in

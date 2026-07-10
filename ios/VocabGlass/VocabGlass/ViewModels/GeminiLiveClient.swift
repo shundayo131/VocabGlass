@@ -27,6 +27,10 @@ final class GeminiLiveClient: ObservableObject {
     // Raw 24 kHz PCM16 reply audio, played by the audio engine 
     var onAudioChunk: ((Data) -> Void)?
 
+    // Fired when the user talks over the model. The audio engine must
+    // flush its playback queue or the conversation drifts behind.
+    var onInterrupted: (() -> Void)?
+
     // Fired when the server announces it will close the connection soon
     // (connection lifetime is about 10 minutes).
     var onGoAway: (() -> Void)?
@@ -271,6 +275,11 @@ final class GeminiLiveClient: ObservableObject {
 
         // Voice reply audio arrives in parts as inline base64 PCM
         if let serverContent = message["serverContent"] as? [String: Any] {
+            // The user talked over the model: stop playing the stale reply.
+            if serverContent["interrupted"] != nil {
+                onInterrupted?()
+                return
+            }
             if let modelTurn = serverContent["modelTurn"] as? [String: Any],
                let parts = modelTurn["parts"] as? [[String: Any]] {
                 for part in parts {
