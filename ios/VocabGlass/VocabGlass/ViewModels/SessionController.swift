@@ -15,8 +15,8 @@ import UIKit
 @MainActor 
 final class SessionController: ObservableObject {
 
-    enum SessionState: String{
-        case idle, starting, active, ending 
+    enum SessionState: String {
+        case idle, starting, active, ending
     }
 
     // MARK: - State the UI reads
@@ -53,10 +53,10 @@ final class SessionController: ObservableObject {
     }
 
     private func start() async {
-        // wireing 
         wireCallbacks()
 
-        // Audio route 
+        // 1. Audio route first (M7: both orders worked, but this order
+        //    also matches the documented recommendation).
         statusLine = "configuring audio"
         do {
             try route.activate()
@@ -65,8 +65,8 @@ final class SessionController: ObservableObject {
             return
         }
 
-        // Camera: startCamera kicks off an async chain; wait for the
-        // stream to actually reach streaming.
+        // 2. Camera: startCamera kicks off an async chain; wait for the
+        //    stream to actually reach streaming.
         statusLine = "starting camera"
         glasses.startCamera()
         guard await waitUntil(timeoutSeconds: 20, { self.glasses.isReady }) else {
@@ -90,25 +90,27 @@ final class SessionController: ObservableObject {
             return
         }
 
-        // Start 10 mins session timer 
+        // 5. The 10 minute session timer.
         startTimer()
 
         state = .active
         statusLine = route.isOnGlasses ? "listening (glasses)" : "listening (iPhone mic)"
     }
     
-    // MARK: - End 
+    // MARK: - End
+
+    // The single exit, reached from every path: the UI button, the voice
+    // command, the timer, GoAway, a lost socket, or the device itself.
     func endSession() {
         guard state == .active || state == .starting else { return }
         state = .ending
         statusLine = "ending session"
 
-        // Cancel the session timer
         sessionTimer?.cancel()
         sessionTimer = nil
         remainingSeconds = 0
 
-        // deactivate audio, gemini, glasses
+        // Tear down in reverse order of startup.
         audioEngine.stop()
         gemini.disconnect()
         route.deactivate()
@@ -125,10 +127,10 @@ final class SessionController: ObservableObject {
     }
 
 
-    // MARK: - Wiring 
-    
-    // Connect the component each other. Call once per session start;
-    // closure replace the previous session's wiring 
+    // MARK: - Wiring
+
+    // Connect the components to each other. Called once per session
+    // start; the closures replace the previous session's wiring.
     private func wireCallbacks() {
         // Mic chunks up to Gemini (audio thread -> main actor hop).
         audioEngine.onMicChunk = { [weak self] data in
@@ -175,7 +177,7 @@ final class SessionController: ObservableObject {
         case "capture_object":
             // The flow is async; run it outside the callback
             // so audio and further messages keep flowing while we work
-            Task { await handleCapture(id: id, name: name)} 
+            Task { await handleCapture(id: id, name: name) }
 
         case "end_session":
             // Answer first so Gemini can say goodbye, then tear down.

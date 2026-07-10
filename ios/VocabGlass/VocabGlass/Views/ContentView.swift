@@ -10,6 +10,8 @@ struct ContentView: View {
     @ObservedObject var client: GlassesClient
     @ObservedObject var store: CardStore
 
+    let session: SessionController
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
@@ -60,6 +62,15 @@ struct ContentView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.large)
             }
+
+            NavigationLink {
+                SessionView(controller: session, store: store)
+            } label: {
+                Label("Voice session", systemImage: "mic.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
 
             Button {
                 client.capturePhoto()
