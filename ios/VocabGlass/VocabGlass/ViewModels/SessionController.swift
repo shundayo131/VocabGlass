@@ -23,6 +23,10 @@ final class SessionController: ObservableObject {
     @Published private(set) var state: SessionState = .idle
     @Published var statusLine = "no session"
     @Published var lastError: String? 
+    @Published private(set) var remainingSeconds = 0
+
+    private var sessionTimer: Task<Void, Never>?
+    static let sessionLimitSeconds = 10 * 60
     
     // MARK: - Dependencies 
 
@@ -86,7 +90,8 @@ final class SessionController: ObservableObject {
             return
         }
 
-        // TODO: start the 10 minute timer here.
+        // Start 10 mins session timer 
+        startTimer()
 
         state = .active
         statusLine = route.isOnGlasses ? "listening (glasses)" : "listening (iPhone mic)"
@@ -98,7 +103,10 @@ final class SessionController: ObservableObject {
         state = .ending
         statusLine = "ending session"
 
-        // TODO: cancel the timer here.
+        // Cancel the session timer
+        sessionTimer?.cancel()
+        sessionTimer = nil
+        remainingSeconds = 0
 
         // deactivate audio, gemini, glasses
         audioEngine.stop()
@@ -140,6 +148,22 @@ final class SessionController: ObservableObject {
         route.onRouteChange = { [weak self] isOnGlasses in
             guard let self, self.state == .active else { return }
             self.statusLine = isOnGlasses ? "listening (glasses)" : "listening (iPhone mic)"
+        }
+
+        gemini.onGoAway = { [weak self] in
+            guard let self, self.state == .active else { return }
+            self.lastError = "Gemini closed the connection (10 min limit)"
+            self.endSession()
+        }
+        gemini.onDisconnect = { [weak self] in
+            guard let self, self.state == .active else { return }
+            self.lastError = "Gemini connection lost"
+            self.endSession()
+        }
+        glasses.onDeviceSessionEnded = { [weak self] in
+            guard let self, self.state == .active else { return }
+            self.lastError = "glasses ended the session"
+            self.endSession()
         }
     }
 
@@ -209,5 +233,21 @@ final class SessionController: ObservableObject {
             try? await Task.sleep(for: .milliseconds(200))
         }
         return true
+    }
+
+    // Count down once a second so the UI can show time left, then end
+    // the session at zero. Cancelled by endSession.
+    private func startTimer() {
+        remainingSeconds = Self.sessionLimitSeconds
+        sessionTimer = Task { [weak self] in
+            while let self, self.remainingSeconds > 0, !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                self.remainingSeconds -= 1
+            }
+            if let self, !Task.isCancelled, self.state == .active {
+                self.statusLine = "time limit reached"
+                self.endSession()
+            }
+        }
     }
 }

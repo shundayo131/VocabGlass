@@ -27,6 +27,13 @@ final class GeminiLiveClient: ObservableObject {
     // Raw 24 kHz PCM16 reply audio, played by the audio engine 
     var onAudioChunk: ((Data) -> Void)?
 
+    // Fired when the server announces it will close the connection soon
+    // (connection lifetime is about 10 minutes).
+    var onGoAway: (() -> Void)?
+
+    // Fired when the socket dies unexpectedly mid-session.
+    var onDisconnect: (() -> Void)?
+
     // MARK: - Private 
 
     private var socket: URLSessionWebSocketTask?
@@ -194,6 +201,7 @@ final class GeminiLiveClient: ObservableObject {
                             .flatMap { String(data: $0, encoding: .utf8) } ?? error.localizedDescription
                         self.status = "socket closed (code \(code)): \(reason)"
                         self.isConnected = false
+                        self.onDisconnect?()
                     }
                     return
                 }
@@ -250,7 +258,8 @@ final class GeminiLiveClient: ObservableObject {
         // The server closes the connection soon (10 mins)
         if let goAway = message["goAway"] as? [String: Any] {
             status = "server closing soon: \(goAway["timeLeft"] ?? "?")"
-            return 
+            onGoAway?()
+            return
         }
     }
 }

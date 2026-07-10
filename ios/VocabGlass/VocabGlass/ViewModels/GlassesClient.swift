@@ -26,6 +26,11 @@ final class GlassesClient: ObservableObject {
     @Published var status = "starting"
     @Published var lastError: String?
 
+    // Fired when the device ends the DAT session on its own (thermal,
+    // battery, glasses folded). The session controller ends the whole
+    // voice session in response.
+    var onDeviceSessionEnded: (() -> Void)?
+
     // MARK: - DAT handles
 
     private let wearables = Wearables.shared
@@ -230,6 +235,7 @@ final class GlassesClient: ObservableObject {
                 // The device ended the session. Go back to idle so the user can
                 // start the camera again when ready.
                 self.stopCamera()
+                self.onDeviceSessionEnded?()
             }
         }
     }
