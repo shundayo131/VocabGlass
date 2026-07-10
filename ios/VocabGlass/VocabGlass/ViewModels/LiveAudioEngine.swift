@@ -33,7 +33,6 @@ final class LiveAudioEngine {
         channels: 1,
         interleaved: true
     )!
-    
 
     // What Gemini sends back as floats for the mixer 
     private let playFormat = AVAudioFormat(
