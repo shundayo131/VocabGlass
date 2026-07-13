@@ -46,7 +46,9 @@ final class SessionController: ObservableObject {
 
 
     func startSession() {
-        guard state == .idle else { return } 
+        guard state == .idle else { return }
+        SessionLog.shared.reset()
+        SessionLog.shared.add("sess", "starting")
         state = .starting
         lastError = nil
         Task { await start() }
@@ -95,6 +97,7 @@ final class SessionController: ObservableObject {
 
         state = .active
         statusLine = route.isOnGlasses ? "listening (glasses)" : "listening (iPhone mic)"
+        SessionLog.shared.add("sess", "active, \(route.isOnGlasses ? "glasses" : "iPhone mic")")
     }
     
     // MARK: - End
@@ -103,6 +106,7 @@ final class SessionController: ObservableObject {
     // command, the timer, GoAway, a lost socket, or the device itself.
     func endSession() {
         guard state == .active || state == .starting else { return }
+        SessionLog.shared.add("sess", "ending (\(lastError ?? "normal"))")
         state = .ending
         statusLine = "ending session"
 
@@ -202,10 +206,13 @@ final class SessionController: ObservableObject {
     private func handleCapture(id: String, name: String) async {
         do {
             statusLine = "capturing photo"
+            SessionLog.shared.add("tool", "capture begin")
             let image = try await glasses.captureAndWait()
+            SessionLog.shared.add("tool", "photo ok")
 
             statusLine = "generating card"
             let card = try await CardAPI.generate(from: image)
+            SessionLog.shared.add("tool", "card ok: \(card.word)")
 
             store.save(card, image: image)
             statusLine = "saved: \(card.word)"
@@ -218,9 +225,11 @@ final class SessionController: ObservableObject {
                 "translation": card.translation,
                 "example": card.example,
             ])
+            SessionLog.shared.add("tool", "toolResponse sent (saved)")
         } catch {
             statusLine = "capture failed"
             lastError = "capture: \(error.localizedDescription)"
+            SessionLog.shared.add("tool", "error: \(error.localizedDescription)")
             gemini.sendToolResponse(id: id, name: name, result: [
                 "status": "error",
                 "message": error.localizedDescription,

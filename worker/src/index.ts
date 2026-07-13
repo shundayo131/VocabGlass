@@ -146,6 +146,10 @@ app.post('/token', async (c) => {
             responseModalities: [Modality.AUDIO],
             systemInstruction: LIVE_SYSTEM_PROMPT,
             tools: LIVE_TOOLS,
+            // Debug instrumentation: the app logs what Gemini heard and
+            // said, with timestamps, to diagnose latency and echo.
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
           },
         },
       }

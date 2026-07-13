@@ -25,6 +25,17 @@ final class LiveAudioEngine {
     private let playerNode = AVAudioPlayerNode()
     private var inputConverter: AVAudioConverter?
     private var chunkCount = 0
+
+    // Speech edge detection for the session log: peaks above the
+    // threshold mean the wearer is talking. Audio-thread only.
+    private var isSpeaking = false
+    private var silentChunks = 0
+    private let speechThreshold: Int16 = 500
+
+    // Seconds of reply audio scheduled but not yet played. Mutated on
+    // the main thread only (play, flush, and the hop in the completion).
+    private var queuedSeconds: Double = 0
+    private var loggedQueueHighWater: Double = 0
     
     // What Gemini expects from us 
     private let sendFormat = AVAudioFormat(
@@ -108,13 +119,27 @@ final class LiveAudioEngine {
             bytes: channel[0],
             count: Int(out.frameLength) * MemoryLayout<Int16>.size
         )
+        // Speech edges for the session log: when the wearer starts
+        // talking and when they stop (about 1 s of quiet ends a turn).
+        var peak: Int16 = 0
+        for i in 0..<Int(out.frameLength) { peak = max(peak, abs(channel[0][i])) }
+        if peak >= speechThreshold {
+            silentChunks = 0
+            if !isSpeaking {
+                isSpeaking = true
+                SessionLog.shared.addAsync("mic", "speech start (peak \(peak))")
+            }
+        } else if isSpeaking {
+            silentChunks += 1
+            if silentChunks >= 4 {
+                isSpeaking = false
+                SessionLog.shared.addAsync("mic", "speech end")
+            }
+        }
+
         #if DEBUG
-        // Every ~2 s: prove the tap runs and check the signal level.
-        // peak 0 means the mic is silent; a few thousand means real voice.
         chunkCount += 1
         if chunkCount % 20 == 1 {
-            var peak: Int16 = 0
-            for i in 0..<Int(out.frameLength) { peak = max(peak, abs(channel[0][i])) }
             print("mic chunk #\(chunkCount): \(data.count) bytes, peak \(peak)")
         }
         #endif
@@ -128,8 +153,11 @@ final class LiveAudioEngine {
     // this the stale audio keeps playing, the queue outgrows realtime,
     // and the conversation drifts minutes behind.
     func flushPlayback() {
+        SessionLog.shared.addAsync("play", String(format: "flush, discarded %.1f s", queuedSeconds))
         playerNode.stop()   // discards all scheduled buffers
         playerNode.play()   // ready for the next reply
+        queuedSeconds = 0
+        loggedQueueHighWater = 0
     }
 
     // Queue a 24 kHz PCM16 chunk for playback.
@@ -141,13 +169,27 @@ final class LiveAudioEngine {
             let buffer = AVAudioPCMBuffer(pcmFormat: playFormat, frameCapacity: frames) else { return }
         buffer.frameLength = frames
 
-        pcm.withUnsafeBytes { raw in 
+        pcm.withUnsafeBytes { raw in
             let int16 = raw.bindMemory(to: Int16.self)
             let out = buffer.floatChannelData![0]
             for i in 0..<Int(frames) {
                 out[i] = Float(int16[i]) / 32768.0
             }
         }
-        playerNode.scheduleBuffer(buffer)
+
+        // Track how far playback runs behind: schedule adds, the
+        // completion (hopped to main, where play() also runs) subtracts.
+        // The log line only fires when the backlog reaches a new high.
+        let seconds = Double(frames) / playFormat.sampleRate
+        queuedSeconds += seconds
+        if queuedSeconds > loggedQueueHighWater + 1 {
+            loggedQueueHighWater = queuedSeconds
+            SessionLog.shared.addAsync("play", String(format: "queue backlog %.1f s", queuedSeconds))
+        }
+        playerNode.scheduleBuffer(buffer) { [weak self] in
+            DispatchQueue.main.async {
+                self?.queuedSeconds = max(0, (self?.queuedSeconds ?? 0) - seconds)
+            }
+        }
     }
 }

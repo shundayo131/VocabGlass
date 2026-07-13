@@ -45,6 +45,11 @@ final class GeminiLiveClient: ObservableObject {
     private var audioChunksSent = 0
     private var droppedChunks = 0
 
+    // Transcription fragments accumulate here and flush to the session
+    // log on turn boundaries, so the log reads as whole sentences.
+    private var inputTranscript = ""
+    private var outputTranscript = ""
+
     // Audio sends waiting for the socket to confirm them. Each chunk is
     // about 100 ms of audio, so 8 in flight is roughly a second of lag.
     private var inFlightSends = 0
@@ -256,17 +261,21 @@ final class GeminiLiveClient: ObservableObject {
         if message["setupComplete"] != nil {
             isConnected = true
             status = "connected, listening"
+            SessionLog.shared.add("gem", "setupComplete")
             return
         }
 
         // Gemini wants the app to do something
         if let toolCall = message["toolCall"] as? [String: Any],
            let calls = toolCall["functionCalls"] as? [[String: Any]] {
+            // Flush transcripts first so the log shows what triggered it.
+            flushTranscripts()
             for call in calls {
                 guard let id = call["id"] as? String,
                       let name = call["name"] as? String else { continue }
                 lastToolCall = name
                 status = "tool call: \(name)"
+                SessionLog.shared.add("tool", "toolCall received: \(name)")
                 pendingToolCall = (id, name)
                 onToolCall?(id, name)
             }
@@ -277,9 +286,27 @@ final class GeminiLiveClient: ObservableObject {
         if let serverContent = message["serverContent"] as? [String: Any] {
             // The user talked over the model: stop playing the stale reply.
             if serverContent["interrupted"] != nil {
+                SessionLog.shared.add("gem", "interrupted")
+                flushTranscripts()
                 onInterrupted?()
                 return
             }
+
+            // Transcriptions arrive as fragments; collect them and log
+            // whole sentences on turn boundaries.
+            if let tx = serverContent["inputTranscription"] as? [String: Any],
+               let text = tx["text"] as? String {
+                inputTranscript += text
+            }
+            if let tx = serverContent["outputTranscription"] as? [String: Any],
+               let text = tx["text"] as? String {
+                outputTranscript += text
+            }
+            if serverContent["turnComplete"] != nil {
+                SessionLog.shared.add("gem", "turnComplete")
+                flushTranscripts()
+            }
+
             if let modelTurn = serverContent["modelTurn"] as? [String: Any],
                let parts = modelTurn["parts"] as? [[String: Any]] {
                 for part in parts {
@@ -296,8 +323,22 @@ final class GeminiLiveClient: ObservableObject {
         // The server closes the connection soon (10 mins)
         if let goAway = message["goAway"] as? [String: Any] {
             status = "server closing soon: \(goAway["timeLeft"] ?? "?")"
+            SessionLog.shared.add("gem", "goAway: \(goAway["timeLeft"] ?? "?")")
             onGoAway?()
             return
+        }
+    }
+
+    // Write accumulated transcript fragments to the session log as full
+    // lines: what Gemini heard (you) and what it said (gem).
+    private func flushTranscripts() {
+        if !inputTranscript.isEmpty {
+            SessionLog.shared.add("you", inputTranscript)
+            inputTranscript = ""
+        }
+        if !outputTranscript.isEmpty {
+            SessionLog.shared.add("gem", outputTranscript)
+            outputTranscript = ""
         }
     }
 }

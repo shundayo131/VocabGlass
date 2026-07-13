@@ -11,6 +11,7 @@ import SwiftUI
 struct SessionView: View {
     @ObservedObject var controller: SessionController
     @ObservedObject var store: CardStore
+    @ObservedObject private var log = SessionLog.shared
 
     var body: some View {
         VStack(spacing: 16) {
@@ -48,6 +49,33 @@ struct SessionView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            #if DEBUG
+            // Debug: the session event log, newest lines visible, whole
+            // log copyable for offline analysis. Removed in M13.
+            if !log.lines.isEmpty {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(Array(log.lines.enumerated()), id: \.offset) { _, line in
+                                Text(line)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            Color.clear.frame(height: 1).id("logEnd")
+                        }
+                    }
+                    .frame(maxHeight: 180)
+                    .onChange(of: log.lines.count) {
+                        proxy.scrollTo("logEnd")
+                    }
+                }
+                Button("Copy log") {
+                    UIPasteboard.general.string = log.text
+                }
+                .font(.footnote)
+            }
+            #endif
 
             Spacer()
 
