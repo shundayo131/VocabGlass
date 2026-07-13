@@ -185,8 +185,11 @@ Decisions that fall out of this:
   2 to 7 seconds). If two captures do overlap at the photo stage, the
   existing capture-in-progress guard turns the second into a spoken
   "wait a moment" error, which is acceptable.
-- At most 3 capture jobs in flight; beyond that the app answers busy
-  and Gemini asks the user to wait.
+- One capture at a time, deliberately (tried 3 parallel jobs first). A
+  capture requested during another one fires 10+ seconds later, when
+  the user is no longer aiming at the object: turn latency stacks on
+  tool latency. The app answers busy and Gemini asks the user to wait
+  for the current result.
 - Conversation lag must never accumulate: the playback queue has a hard
   6 second ceiling and flushes past it. Announcements are kept to the
   shortest form ("Saved: 狗, dog.") to narrow the collision window

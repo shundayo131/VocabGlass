@@ -28,10 +28,12 @@ final class SessionController: ObservableObject {
     private var sessionTimer: Task<Void, Never>?
     static let sessionLimitSeconds = 10 * 60
 
-    // Captures running in the background. Bounded so the spoken
-    // narration stays followable (spec: Voice UX design, M9).
+    // One capture at a time, deliberately. A capture requested while one
+    // is processing fires 10+ seconds later (turn latency stacks on tool
+    // latency), when the user is no longer aiming at the object. Busy +
+    // "please wait" is the better experience (spec: Voice UX design, M9).
     private var activeCaptureJobs = 0
-    static let maxCaptureJobs = 3
+    static let maxCaptureJobs = 1
     
     // MARK: - Dependencies 
 
@@ -203,7 +205,7 @@ final class SessionController: ObservableObject {
                 Diag.event("tool", "busy: \(activeCaptureJobs) captures in flight")
                 gemini.sendToolResponse(id: id, name: name, result: [
                     "status": "busy",
-                    "message": "Too many captures are already processing. Ask the user to wait a moment.",
+                    "message": "A capture is still processing. Ask the user to wait until its result is announced, then aim and ask again.",
                 ])
                 return
             }
