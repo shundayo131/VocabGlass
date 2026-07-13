@@ -187,6 +187,14 @@ Decisions that fall out of this:
   "wait a moment" error, which is acceptable.
 - At most 3 capture jobs in flight; beyond that the app answers busy
   and Gemini asks the user to wait.
+- Conversation lag must never accumulate: the playback queue has a hard
+  6 second ceiling and flushes past it. Announcements are kept to the
+  shortest form ("Saved: 狗, dog.") to narrow the collision window
+  between announcements and new commands.
+- Option noted for later: grab the capture image from the live stream
+  frame (0 s instead of the 2 to 7 s capturePhoto) and play a local
+  shutter earcon through the glasses for feedback. capturePhoto kept
+  for now.
 - Open follow-up: if a dead voice link ever needs reporting (uplink
   stall), voice cannot carry its own failure; the phone needs a local
   notification or haptic. M13 candidate.

@@ -184,10 +184,23 @@ final class LiveAudioEngine {
         // adds, the completion (hopped to main, where play() also runs)
         // subtracts. The log line only fires on a new backlog high.
         let seconds = Double(frames) / playFormat.sampleRate
+        let wasIdle = queuedSeconds == 0
         queuedSeconds += seconds
+        if wasIdle {
+            // Observability: the moment reply audio actually starts
+            // coming out of the speaker after silence.
+            Diag.event("play", "audio out")
+        }
         if queuedSeconds > loggedQueueHighWater + 1 {
             loggedQueueHighWater = queuedSeconds
             Diag.event("play", String(format: "queue backlog %.1f s", queuedSeconds))
+        }
+        // Hard ceiling: conversation lag must never accumulate (top UX
+        // priority). Catching up to now beats hearing everything late.
+        if queuedSeconds > 6 {
+            Diag.event("play", "backlog over 6 s, flushing to stay realtime")
+            flushPlayback()
+            return
         }
         playerNode.scheduleBuffer(buffer) { [weak self] in
             DispatchQueue.main.async {
