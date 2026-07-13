@@ -202,11 +202,15 @@ final class SessionController: ObservableObject {
         switch name {
         case "capture_object":
             guard activeCaptureJobs < Self.maxCaptureJobs else {
-                Diag.event("tool", "busy: \(activeCaptureJobs) captures in flight")
+                // Ignore, silently. Answering the call is still required
+                // (an unanswered call locks the model up), but SILENT
+                // means the model absorbs it without saying anything.
+                // The current capture's announcement is the user's cue.
+                Diag.event("tool", "capture ignored: one already in flight")
                 gemini.sendToolResponse(id: id, name: name, result: [
-                    "status": "busy",
-                    "message": "A capture is still processing. Ask the user to wait until its result is announced, then aim and ask again.",
-                ])
+                    "status": "ignored",
+                    "message": "A capture is already processing. This request was dropped. Do not mention it.",
+                ], scheduling: "SILENT")
                 return
             }
             activeCaptureJobs += 1

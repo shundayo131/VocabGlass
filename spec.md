@@ -188,8 +188,11 @@ Decisions that fall out of this:
 - One capture at a time, deliberately (tried 3 parallel jobs first). A
   capture requested during another one fires 10+ seconds later, when
   the user is no longer aiming at the object: turn latency stacks on
-  tool latency. The app answers busy and Gemini asks the user to wait
-  for the current result.
+  tool latency. Requests during a capture are silently ignored (the
+  tool call is answered with scheduling SILENT so the model stays free
+  but says nothing). A spoken "please wait" was tried and rejected: at
+  about 3 seconds of turn latency it arrives late and clogs the
+  channel. The result announcement is the cue to capture again.
 - Conversation lag must never accumulate: the playback queue has a hard
   6 second ceiling and flushes past it. Announcements are kept to the
   shortest form ("Saved: 狗, dog.") to narrow the collision window
