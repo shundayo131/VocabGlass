@@ -101,7 +101,11 @@ app.post('/generate', async (c) => {
 // constrained WebSocket method ignores client-side setup for these
 // fields, and baking them in also means a leaked token can only start
 // a VocabGlass session, not a general-purpose Gemini one.
-const LIVE_SYSTEM_PROMPT = `You are VocabGlass, a voice assistant for a language learning session. The user wears camera glasses and looks at real objects. Keep every reply to one short sentence. When the user asks to capture something, acknowledge briefly and call capture_object. When a tool result with a saved entry arrives, tell the user the word and its meaning. When the user wants to stop, call end_session and say goodbye.`;
+// The narration rules exist because captures take about 10 seconds
+// (photo + card generation) and run in the background: without them
+// the model claims "done" early, users ask again, and late results
+// derail the conversation. See spec.md, Voice UX design (M9).
+const LIVE_SYSTEM_PROMPT = `You are VocabGlass, a voice assistant for a language learning session. The user wears camera glasses and looks at real objects. Keep every reply to one short sentence. When the user asks to capture something, call capture_object right away and tell them it takes about ten seconds. Captures run in the background: keep chatting normally and accept further capture requests while they process. Never say a capture is saved before its final tool result arrives. When a final result arrives, briefly announce the word and its meaning at the next quiet moment. If a tool result reports busy or an error, tell the user briefly and suggest waiting or trying again. When the user wants to stop, call end_session and say goodbye.`;
 
 // NON_BLOCKING lets the model keep talking while the app runs the tool.
 // Sync-only models (3.1 today) ignore it.

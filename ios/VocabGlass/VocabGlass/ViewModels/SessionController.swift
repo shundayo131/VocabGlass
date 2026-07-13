@@ -27,6 +27,11 @@ final class SessionController: ObservableObject {
 
     private var sessionTimer: Task<Void, Never>?
     static let sessionLimitSeconds = 10 * 60
+
+    // Captures running in the background. Bounded so the spoken
+    // narration stays followable (spec: Voice UX design, M9).
+    private var activeCaptureJobs = 0
+    static let maxCaptureJobs = 3
     
     // MARK: - Dependencies 
 
@@ -194,9 +199,27 @@ final class SessionController: ObservableObject {
     private func handleToolCall(id: String, name: String) {
         switch name {
         case "capture_object":
-            // The flow is async; run it outside the callback
-            // so audio and further messages keep flowing while we work
-            Task { await handleCapture(id: id, name: name) }
+            guard activeCaptureJobs < Self.maxCaptureJobs else {
+                Diag.event("tool", "busy: \(activeCaptureJobs) captures in flight")
+                gemini.sendToolResponse(id: id, name: name, result: [
+                    "status": "busy",
+                    "message": "Too many captures are already processing. Ask the user to wait a moment.",
+                ])
+                return
+            }
+            activeCaptureJobs += 1
+
+            // Two-phase response: the intermediate ack frees the model
+            // within a second, so conversation and further captures keep
+            // flowing while this one runs in the background.
+            gemini.sendToolResponse(id: id, name: name,
+                                    result: ["status": "capturing"],
+                                    willContinue: true,
+                                    scheduling: "SILENT")
+            Task {
+                await handleCapture(id: id, name: name)
+                activeCaptureJobs -= 1
+            }
 
         case "end_session":
             // Answer first so Gemini can say goodbye, then tear down.

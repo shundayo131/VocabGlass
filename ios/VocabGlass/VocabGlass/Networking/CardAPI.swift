@@ -18,7 +18,12 @@ enum CardAPI {
     }
 
     static func generate(from image: UIImage) async throws -> LearningCard {
-        guard let jpeg = image.jpegData(compressionQuality: 0.8) else {
+        // Downscale before upload. Glasses photos are several MB; sending
+        // them whole made card generation take 3 to 14 seconds depending
+        // on the uplink (measured in M9). Identifying one object needs
+        // far less than full resolution.
+        let sized = image.resized(maxDimension: 1024)
+        guard let jpeg = sized.jpegData(compressionQuality: 0.7) else {
             throw URLError(.cannotDecodeContentData)
         }
 
@@ -37,5 +42,21 @@ enum CardAPI {
         }
 
         return try JSONDecoder().decode(LearningCard.self, from: data)
+    }
+}
+
+private extension UIImage {
+    // Scale down so the longest edge fits maxDimension; returns self if
+    // the image is already small enough.
+    func resized(maxDimension: CGFloat) -> UIImage {
+        let longest = max(size.width, size.height)
+        guard longest > maxDimension else { return self }
+        let scale = maxDimension / longest
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: newSize, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: newSize))
+        }
     }
 }

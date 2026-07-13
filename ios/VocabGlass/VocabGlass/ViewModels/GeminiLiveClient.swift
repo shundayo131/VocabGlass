@@ -250,20 +250,29 @@ final class GeminiLiveClient: ObservableObject {
         })
     }
 
-    // Send the result of an app action back so Gemini can speak it.
-    // scheduling: INTERRUPT asks the async model to speak the result right
-    // away; it sits next to id and name, not inside response.
-    func sendToolResponse(id: String, name: String, result: [String: Any]) {
+    // Send a response for a tool call. Slow tools answer twice (the
+    // two-phase pattern from the M9 UX design in spec.md):
+    // - intermediate ack right away: willContinue true, scheduling
+    //   SILENT. Closes the model's open transaction in under a second
+    //   so conversation and further tool calls keep flowing.
+    // - final result when done: willContinue false (default), scheduling
+    //   WHEN_IDLE so the announcement never barges into the user.
+    //   INTERRUPT (tried first) derailed conversations, M9 logs.
+    func sendToolResponse(id: String, name: String, result: [String: Any],
+                          willContinue: Bool = false,
+                          scheduling: String = "WHEN_IDLE") {
+        var response: [String: Any] = [
+            "id": id,
+            "name": name,
+            "response": result,
+            "scheduling": scheduling,
+        ]
+        if willContinue {
+            response["willContinue"] = true
+        }
         sendJSON([
             "toolResponse": [
-                "functionResponses": [
-                    [
-                        "id": id,
-                        "name": name,
-                        "response": result,
-                        "scheduling": "INTERRUPT",
-                    ],
-                ]
+                "functionResponses": [response]
             ]
         ])
     }

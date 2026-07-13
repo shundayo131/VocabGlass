@@ -154,6 +154,43 @@ What we verified before building, and the constraints that shape the code:
 References: Meta "Microphones and speakers" and "Integration overview" docs,
 meta-wearables-dat-ios discussions #116 and #141. Links in section 10.
 
+### Voice UX design (M9)
+
+Principle: voice is the screen. The glasses have no display, so every
+state change the user cares about must be audible. Progress, busy,
+success, and failure are all spoken by Gemini; the phone screen is
+secondary. Latency work only exists to keep the spoken promises
+("about ten seconds") honest and low-variance.
+
+The target scenario for captures:
+
+1. User: "Capture this." Gemini calls capture_object and says it takes
+   about ten seconds. The app immediately answers the tool call with an
+   intermediate response (willContinue: true, scheduling SILENT), so the
+   model is free again in under a second.
+2. The capture runs in the background (photo, then card generation on
+   the worker; parallel generations are fine, the worker is stateless).
+   The user keeps chatting, and can ask for further captures; the
+   glasses shutter sound tells them each photo happened.
+3. When a capture finishes, the app sends the final tool response with
+   the word, scheduling WHEN_IDLE: Gemini announces "saved: <word>" at
+   the next quiet moment, never interrupting the user or a newer
+   request.
+4. Failures take the same path with an error payload; Gemini tells the
+   user briefly and suggests retrying.
+
+Decisions that fall out of this:
+- No capture queue. Voice commands serialize naturally (the next
+  capture request can only arrive after more speech, and a photo takes
+  2 to 7 seconds). If two captures do overlap at the photo stage, the
+  existing capture-in-progress guard turns the second into a spoken
+  "wait a moment" error, which is acceptable.
+- At most 3 capture jobs in flight; beyond that the app answers busy
+  and Gemini asks the user to wait.
+- Open follow-up: if a dead voice link ever needs reporting (uplink
+  stall), voice cannot carry its own failure; the phone needs a local
+  notification or haptic. M13 candidate.
+
 ### Voice session findings (M9, on device 2026-07-10)
 
 - Disconnect other Bluetooth audio (AirPods) before a session: two
