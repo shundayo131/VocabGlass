@@ -13,6 +13,13 @@
 //
 //  In debug builds both tiers also feed the on-screen SessionLog viewer.
 //
+//  Comment convention at call sites, so measurement code is easy to
+//  find and to clean up:
+//  - "Observability:" marks Diag.event sites. These stay in production.
+//  - "Debug instrumentation (M13: remove):" marks Diag.debug sites, the
+//    SessionLog viewer, and temporary measurement state. Grep for
+//    "M13: remove" to find everything that goes away after M9 debugging.
+//
 
 import Foundation
 import os

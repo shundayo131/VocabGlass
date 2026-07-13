@@ -45,8 +45,10 @@ final class GeminiLiveClient: ObservableObject {
     private var audioChunksSent = 0
     private var droppedChunks = 0
 
-    // Transcription fragments accumulate here and flush to the session
-    // log on turn boundaries, so the log reads as whole sentences.
+    // Debug instrumentation (M13: remove): transcription fragments
+    // accumulate here and flush to the session log on turn boundaries,
+    // so the log reads as whole sentences. Requires the transcription
+    // config the worker bakes into the token.
     private var inputTranscript = ""
     private var outputTranscript = ""
 
@@ -63,9 +65,9 @@ final class GeminiLiveClient: ObservableObject {
     private var stallReported = false
     private let stallSeconds: TimeInterval = 5
 
-    // Keepalive instrumentation: a ping and a stats heartbeat every 10 s
-    // tell the log whether the socket itself is alive and which side of
-    // the pipe stopped first. Measurement only, no recovery here.
+    // Observability: a ping and a stats heartbeat every 10 s tell the
+    // log whether the socket itself is alive and which side of the pipe
+    // stopped first. Measurement only, no recovery here.
     private var keepaliveTask: Task<Void, Never>?
     private var pingSentAt: Date?
     private var lastReceived = Date()
@@ -329,7 +331,7 @@ final class GeminiLiveClient: ObservableObject {
 
     // Handle Gemini response 
     private func handle (_ data: Data) {
-        lastReceived = Date()
+        lastReceived = Date()   // observability: feeds the heartbeat line
         guard let message = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
         }
@@ -410,8 +412,9 @@ final class GeminiLiveClient: ObservableObject {
         }
     }
 
-    // Write accumulated transcript fragments to the session log as full
-    // lines: what Gemini heard (you) and what it said (gem).
+    // Debug instrumentation (M13: remove): write accumulated transcript
+    // fragments to the session log as full lines, what Gemini heard
+    // (you) and what it said (gem).
     private func flushTranscripts() {
         if !inputTranscript.isEmpty {
             Diag.debug("you", inputTranscript)

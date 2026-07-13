@@ -26,14 +26,16 @@ final class LiveAudioEngine {
     private var inputConverter: AVAudioConverter?
     private var chunkCount = 0
 
-    // Speech edge detection for the session log: peaks above the
-    // threshold mean the wearer is talking. Audio-thread only.
+    // Debug instrumentation (M13: remove): speech edge detection for the
+    // session log. Peaks above the threshold mean the wearer is talking.
+    // Audio-thread only.
     private var isSpeaking = false
     private var silentChunks = 0
     private let speechThreshold: Int16 = 500
 
-    // Seconds of reply audio scheduled but not yet played. Mutated on
-    // the main thread only (play, flush, and the hop in the completion).
+    // Observability: seconds of reply audio scheduled but not yet
+    // played, reported as playback backlog. Mutated on the main thread
+    // only (play, flush, and the hop in the completion).
     private var queuedSeconds: Double = 0
     private var loggedQueueHighWater: Double = 0
     
@@ -119,8 +121,9 @@ final class LiveAudioEngine {
             bytes: channel[0],
             count: Int(out.frameLength) * MemoryLayout<Int16>.size
         )
-        // Speech edges for the session log: when the wearer starts
-        // talking and when they stop (about 1 s of quiet ends a turn).
+        // Debug instrumentation (M13: remove): speech edges for the
+        // session log, when the wearer starts talking and when they stop
+        // (about 1 s of quiet ends a turn).
         var peak: Int16 = 0
         for i in 0..<Int(out.frameLength) { peak = max(peak, abs(channel[0][i])) }
         if peak >= speechThreshold {
@@ -177,9 +180,9 @@ final class LiveAudioEngine {
             }
         }
 
-        // Track how far playback runs behind: schedule adds, the
-        // completion (hopped to main, where play() also runs) subtracts.
-        // The log line only fires when the backlog reaches a new high.
+        // Observability: track how far playback runs behind. Schedule
+        // adds, the completion (hopped to main, where play() also runs)
+        // subtracts. The log line only fires on a new backlog high.
         let seconds = Double(frames) / playFormat.sampleRate
         queuedSeconds += seconds
         if queuedSeconds > loggedQueueHighWater + 1 {

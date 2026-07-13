@@ -90,6 +90,7 @@ final class AudioRouteManager: ObservableObject {
                 guard let self, self.isActive else { return }
                 self.preferGlassesInput()
                 self.updateRoute()
+                // Observability: every route move, with where input landed.
                 let input = AVAudioSession.sharedInstance().currentRoute
                     .inputs.first?.portName ?? "none"
                 Diag.event("route", "changed, glasses=\(self.isOnGlasses), in: \(input)")

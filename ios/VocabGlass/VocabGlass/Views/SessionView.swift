@@ -51,8 +51,8 @@ struct SessionView: View {
             }
 
             #if DEBUG
-            // Debug: the session event log, newest lines visible, whole
-            // log copyable for offline analysis. Removed in M13.
+            // Debug instrumentation (M13: remove): the session event log,
+            // newest lines visible, whole log copyable for offline analysis.
             if !log.lines.isEmpty {
                 ScrollViewReader { proxy in
                     ScrollView {

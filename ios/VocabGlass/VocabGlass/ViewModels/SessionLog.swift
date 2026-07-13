@@ -5,7 +5,7 @@
 //  Timestamped event log for voice session debugging: what the mic heard,
 //  what Gemini transcribed and said, when tools fired, how deep the
 //  playback queue is. Shown on the session screen and copyable for
-//  analysis. Debug tooling, removed in M13.
+//  analysis. Debug instrumentation (M13: remove).
 //
 
 import Foundation

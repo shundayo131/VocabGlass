@@ -43,7 +43,7 @@ final class SessionController: ObservableObject {
         self.glasses = glasses
         self.store = store
 
-        // Instrumentation: correlate session trouble with the app moving
+        // Observability: correlate session trouble with the app moving
         // to and from the background (screen lock, app switch).
         NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
