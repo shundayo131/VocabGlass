@@ -127,13 +127,13 @@ final class LiveAudioEngine {
             silentChunks = 0
             if !isSpeaking {
                 isSpeaking = true
-                SessionLog.shared.addAsync("mic", "speech start (peak \(peak))")
+                Diag.debug("mic", "speech start (peak \(peak))")
             }
         } else if isSpeaking {
             silentChunks += 1
             if silentChunks >= 4 {
                 isSpeaking = false
-                SessionLog.shared.addAsync("mic", "speech end")
+                Diag.debug("mic", "speech end")
             }
         }
 
@@ -153,7 +153,7 @@ final class LiveAudioEngine {
     // this the stale audio keeps playing, the queue outgrows realtime,
     // and the conversation drifts minutes behind.
     func flushPlayback() {
-        SessionLog.shared.addAsync("play", String(format: "flush, discarded %.1f s", queuedSeconds))
+        Diag.event("play", String(format: "flush, discarded %.1f s", queuedSeconds))
         playerNode.stop()   // discards all scheduled buffers
         playerNode.play()   // ready for the next reply
         queuedSeconds = 0
@@ -184,7 +184,7 @@ final class LiveAudioEngine {
         queuedSeconds += seconds
         if queuedSeconds > loggedQueueHighWater + 1 {
             loggedQueueHighWater = queuedSeconds
-            SessionLog.shared.addAsync("play", String(format: "queue backlog %.1f s", queuedSeconds))
+            Diag.event("play", String(format: "queue backlog %.1f s", queuedSeconds))
         }
         playerNode.scheduleBuffer(buffer) { [weak self] in
             DispatchQueue.main.async {

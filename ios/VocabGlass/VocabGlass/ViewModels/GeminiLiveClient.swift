@@ -261,7 +261,7 @@ final class GeminiLiveClient: ObservableObject {
         if message["setupComplete"] != nil {
             isConnected = true
             status = "connected, listening"
-            SessionLog.shared.add("gem", "setupComplete")
+            Diag.event("gem", "setupComplete")
             return
         }
 
@@ -275,7 +275,7 @@ final class GeminiLiveClient: ObservableObject {
                       let name = call["name"] as? String else { continue }
                 lastToolCall = name
                 status = "tool call: \(name)"
-                SessionLog.shared.add("tool", "toolCall received: \(name)")
+                Diag.event("tool", "toolCall received: \(name)")
                 pendingToolCall = (id, name)
                 onToolCall?(id, name)
             }
@@ -286,7 +286,7 @@ final class GeminiLiveClient: ObservableObject {
         if let serverContent = message["serverContent"] as? [String: Any] {
             // The user talked over the model: stop playing the stale reply.
             if serverContent["interrupted"] != nil {
-                SessionLog.shared.add("gem", "interrupted")
+                Diag.event("gem", "interrupted")
                 flushTranscripts()
                 onInterrupted?()
                 return
@@ -303,7 +303,7 @@ final class GeminiLiveClient: ObservableObject {
                 outputTranscript += text
             }
             if serverContent["turnComplete"] != nil {
-                SessionLog.shared.add("gem", "turnComplete")
+                Diag.event("gem", "turnComplete")
                 flushTranscripts()
             }
 
@@ -323,7 +323,7 @@ final class GeminiLiveClient: ObservableObject {
         // The server closes the connection soon (10 mins)
         if let goAway = message["goAway"] as? [String: Any] {
             status = "server closing soon: \(goAway["timeLeft"] ?? "?")"
-            SessionLog.shared.add("gem", "goAway: \(goAway["timeLeft"] ?? "?")")
+            Diag.event("gem", "goAway: \(goAway["timeLeft"] ?? "?")")
             onGoAway?()
             return
         }
@@ -333,11 +333,11 @@ final class GeminiLiveClient: ObservableObject {
     // lines: what Gemini heard (you) and what it said (gem).
     private func flushTranscripts() {
         if !inputTranscript.isEmpty {
-            SessionLog.shared.add("you", inputTranscript)
+            Diag.debug("you", inputTranscript)
             inputTranscript = ""
         }
         if !outputTranscript.isEmpty {
-            SessionLog.shared.add("gem", outputTranscript)
+            Diag.debug("gem", outputTranscript)
             outputTranscript = ""
         }
     }
