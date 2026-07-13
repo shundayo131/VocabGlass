@@ -55,6 +55,14 @@ final class GeminiLiveClient: ObservableObject {
     private var inFlightSends = 0
     private let maxInFlightSends = 8
 
+    // Stall watchdog: if the counter is pegged and no send has completed
+    // for this long, the link is dead, not slow. Without this the
+    // backpressure guard drops every chunk forever and the mic goes
+    // silent with no error (seen in M9 logs).
+    private var lastSendCompleted = Date()
+    private var stallReported = false
+    private let stallSeconds: TimeInterval = 5
+
     private struct TokenResponse: Decodable {
         let token: String
         let model: String
@@ -86,6 +94,13 @@ final class GeminiLiveClient: ObservableObject {
         socket = nil
         isConnected = false
         status = "disconnected"
+        // Reset per-session send accounting for the next connect.
+        inFlightSends = 0
+        droppedChunks = 0
+        stallReported = false
+        lastSendCompleted = Date()
+        inputTranscript = ""
+        outputTranscript = ""
     }
 
     // Fetch an ephemeral Gemini Live token from the worker
@@ -143,11 +158,16 @@ final class GeminiLiveClient: ObservableObject {
         // Dropping keeps the session realtime at the cost of small gaps.
         guard inFlightSends < maxInFlightSends else {
             droppedChunks += 1
-            #if DEBUG
-            if droppedChunks % 20 == 1 {
-                print("gemini -> uplink congested, dropped \(droppedChunks) chunks so far")
+            if droppedChunks == 1 || droppedChunks % 50 == 0 {
+                Diag.event("net", "uplink congested, dropped \(droppedChunks) chunks")
             }
-            #endif
+            if !stallReported,
+               Date().timeIntervalSince(lastSendCompleted) > stallSeconds {
+                stallReported = true
+                Diag.event("net", "uplink stalled over \(Int(stallSeconds)) s, treating connection as lost")
+                status = "uplink stalled"
+                onDisconnect?()
+            }
             return
         }
         inFlightSends += 1
@@ -200,6 +220,7 @@ final class GeminiLiveClient: ObservableObject {
         }
         socket.send(.string(text)) { error in
             Task { @MainActor [weak self] in
+                self?.lastSendCompleted = Date()
                 onSent?()
                 if let error {
                     self?.status = "send failed: \(error.localizedDescription)"
