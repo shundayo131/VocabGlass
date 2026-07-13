@@ -211,6 +211,7 @@ final class GlassesClient: ObservableObject {
                 Task { @MainActor [weak self] in
                     self?.status = "stream: \(state)"
                     self?.isReady = (state == .streaming)   // capture only while streaming
+                    Diag.event("dat", "stream: \(state)")
                 }
             }
             errorToken = stream.errorPublisher.listen { error in
@@ -237,6 +238,7 @@ final class GlassesClient: ObservableObject {
         Task {
             for await error in session.errorStream() {
                 self.lastError = "session error: \(error.localizedDescription)"
+                Diag.event("dat", "session error: \(error.localizedDescription)")
                 // The device ended the session. Go back to idle so the user can
                 // start the camera again when ready.
                 self.stopCamera()

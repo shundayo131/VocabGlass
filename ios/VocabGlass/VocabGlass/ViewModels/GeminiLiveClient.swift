@@ -63,6 +63,13 @@ final class GeminiLiveClient: ObservableObject {
     private var stallReported = false
     private let stallSeconds: TimeInterval = 5
 
+    // Keepalive instrumentation: a ping and a stats heartbeat every 10 s
+    // tell the log whether the socket itself is alive and which side of
+    // the pipe stopped first. Measurement only, no recovery here.
+    private var keepaliveTask: Task<Void, Never>?
+    private var pingSentAt: Date?
+    private var lastReceived = Date()
+
     private struct TokenResponse: Decodable {
         let token: String
         let model: String
@@ -88,6 +95,9 @@ final class GeminiLiveClient: ObservableObject {
 
     // Disconnect from the Gemini Live API and clean up state
     func disconnect() {
+        keepaliveTask?.cancel()
+        keepaliveTask = nil
+        pingSentAt = nil
         receiveTask?.cancel()
         receiveTask = nil
         socket?.cancel(with: .normalClosure, reason: nil)
@@ -129,7 +139,55 @@ final class GeminiLiveClient: ObservableObject {
         status = "connecting"
         socket.resume()
         listen()
+        startKeepalive()
         sendSetup(model: token.model)
+    }
+
+    // MARK: - Keepalive (instrumentation)
+
+    private func startKeepalive() {
+        keepaliveTask?.cancel()
+        lastReceived = Date()
+        keepaliveTask = Task { [weak self] in
+            while let self, !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(10))
+                guard let socket = self.socket, !Task.isCancelled else { return }
+                self.logHeartbeat()
+                self.sendPing(socket)
+            }
+        }
+    }
+
+    private func logHeartbeat() {
+        let sendAge = Date().timeIntervalSince(lastSendCompleted)
+        let recvAge = Date().timeIntervalSince(lastReceived)
+        Diag.event("net", String(
+            format: "hb: sent %d, dropped %d, inflight %d, lastSendOk %.1fs ago, lastRecv %.1fs ago",
+            audioChunksSent, droppedChunks, inFlightSends, sendAge, recvAge))
+    }
+
+    private func sendPing(_ socket: URLSessionWebSocketTask) {
+        let sentAt = Date()
+        pingSentAt = sentAt
+        socket.sendPing { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self, self.pingSentAt == sentAt else { return }
+                self.pingSentAt = nil
+                if let error {
+                    Diag.event("net", "ping failed: \(error.localizedDescription)")
+                } else {
+                    let ms = Int(Date().timeIntervalSince(sentAt) * 1000)
+                    Diag.event("net", "ping \(ms) ms")
+                }
+            }
+        }
+        // A pong that never comes back would otherwise log nothing.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard let self, self.pingSentAt == sentAt else { return }
+            self.pingSentAt = nil
+            Diag.event("net", "ping timeout (no pong in 5 s)")
+        }
     }
 
 
@@ -259,6 +317,7 @@ final class GeminiLiveClient: ObservableObject {
                         let reason = self.socket?.closeReason
                             .flatMap { String(data: $0, encoding: .utf8) } ?? error.localizedDescription
                         self.status = "socket closed (code \(code)): \(reason)"
+                        Diag.event("net", "socket closed (code \(code)): \(reason)")
                         self.isConnected = false
                         self.onDisconnect?()
                     }
@@ -270,6 +329,7 @@ final class GeminiLiveClient: ObservableObject {
 
     // Handle Gemini response 
     private func handle (_ data: Data) {
+        lastReceived = Date()
         guard let message = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
         }
