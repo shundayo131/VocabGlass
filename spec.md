@@ -154,53 +154,35 @@ What we verified before building, and the constraints that shape the code:
 References: Meta "Microphones and speakers" and "Integration overview" docs,
 meta-wearables-dat-ios discussions #116 and #141. Links in section 10.
 
-### Voice UX design (M9)
+### Live API constraints and the resulting behavior (M9)
 
-Principle: voice is the screen. The glasses have no display, so every
-state change the user cares about must be audible. Progress, busy,
-success, and failure are all spoken by Gemini; the phone screen is
-secondary. Latency work only exists to keep the spoken promises
-("about ten seconds") honest and low-variance.
+Facts, measured on device:
 
-The target scenario for captures:
+- Turn latency (speech end to reply audio) is 3 to 5 seconds. This is
+  the platform floor (server VAD plus generation); it cannot be
+  engineered away on our side.
+- The mic streams continuously. Talking over Gemini reaches the API
+  immediately; playback of the stale reply is flushed on the server's
+  interrupted signal.
+- An unanswered tool call locks the model (it stops responding until a
+  response arrives). Every tool call must be answered, even to ignore
+  it.
+- A pending tool call also makes the model reluctant to issue further
+  tool calls.
+- capturePhoto takes 2 to 7 seconds, card generation 2 to 3 seconds
+  (with photos downscaled to 1024 px before upload).
 
-1. User: "Capture this." Gemini calls capture_object and says it takes
-   about ten seconds. The app immediately answers the tool call with an
-   intermediate response (willContinue: true, scheduling SILENT), so the
-   model is free again in under a second.
-2. The capture runs in the background (photo, then card generation on
-   the worker; parallel generations are fine, the worker is stateless).
-   The user keeps chatting, and can ask for further captures; the
-   glasses shutter sound tells them each photo happened.
-3. When a capture finishes, the app sends the final tool response with
-   the word, scheduling WHEN_IDLE: Gemini announces "saved: <word>" at
-   the next quiet moment, never interrupting the user or a newer
-   request.
-4. Failures take the same path with an error payload; Gemini tells the
-   user briefly and suggests retrying.
+Behavior chosen under these constraints:
 
-Decisions that fall out of this:
-- No capture queue. Voice commands serialize naturally (the next
-  capture request can only arrive after more speech, and a photo takes
-  2 to 7 seconds). If two captures do overlap at the photo stage, the
-  existing capture-in-progress guard turns the second into a spoken
-  "wait a moment" error, which is acceptable.
-- One capture at a time, deliberately (tried 3 parallel jobs first). A
-  capture requested during another one fires 10+ seconds later, when
-  the user is no longer aiming at the object: turn latency stacks on
-  tool latency. Requests during a capture are silently ignored (the
-  tool call is answered with scheduling SILENT so the model stays free
-  but says nothing). A spoken "please wait" was tried and rejected: at
-  about 3 seconds of turn latency it arrives late and clogs the
-  channel. The result announcement is the cue to capture again.
-- Conversation lag must never accumulate: the playback queue has a hard
-  6 second ceiling and flushes past it. Announcements are kept to the
-  shortest form ("Saved: 狗, dog.") to narrow the collision window
-  between announcements and new commands.
+- One capture at a time. Requests during a capture are answered with
+  scheduling SILENT (the model stays free, says nothing). Stacked
+  latencies fire late captures when the user is no longer aiming.
+- Fixed narration: "Capturing." on the tool call, "Stored." on the
+  result. Longer narration clogs the channel at this turn latency.
+- Playback queue is flushed on interrupted and hard-capped at 6
+  seconds, so conversation lag cannot accumulate.
 - Option noted for later: grab the capture image from the live stream
-  frame (0 s instead of the 2 to 7 s capturePhoto) and play a local
-  shutter earcon through the glasses for feedback. capturePhoto kept
-  for now.
+  frame (0 s instead of capturePhoto) and play a local shutter earcon.
 - Open follow-up: if a dead voice link ever needs reporting (uplink
   stall), voice cannot carry its own failure; the phone needs a local
   notification or haptic. M13 candidate.

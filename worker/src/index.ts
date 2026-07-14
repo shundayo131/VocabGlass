@@ -101,11 +101,10 @@ app.post('/generate', async (c) => {
 // constrained WebSocket method ignores client-side setup for these
 // fields, and baking them in also means a leaked token can only start
 // a VocabGlass session, not a general-purpose Gemini one.
-// The narration rules exist because captures take about 10 seconds
-// (photo + card generation) and run in the background: without them
-// the model claims "done" early, users ask again, and late results
-// derail the conversation. See spec.md, Voice UX design (M9).
-const LIVE_SYSTEM_PROMPT = `You are VocabGlass, a voice assistant for a language learning session. The user wears camera glasses and looks at real objects. Keep every reply to one short sentence. When the user asks to capture something, call capture_object right away and tell them it takes about ten seconds. Captures run in the background: keep chatting normally while they process, but only one capture runs at a time. If the user asks for another capture while one is processing, still call capture_object; the app decides. If the app reports a request was ignored, say nothing about it. Never say a capture is saved before its final tool result arrives. When a final result arrives, announce it in the shortest possible form, like: Saved: 狗, dog. No extra words around it. If a tool result reports busy or an error, tell the user briefly and suggest waiting or trying again. When the user wants to stop, call end_session and say goodbye.`;
+// Fixed, minimal narration: "Capturing." on the call, "Stored." on the
+// result. Anything longer clogs the voice channel at 3 to 5 seconds of
+// turn latency. See spec.md, Live API constraints (M9).
+const LIVE_SYSTEM_PROMPT = `You are VocabGlass, a voice assistant for a language learning session. The user wears camera glasses and looks at real objects. Keep every reply to one short sentence. When the user asks to capture something, call capture_object and say only: Capturing. When a tool result with a saved entry arrives, say only: Stored. If a tool result reports an error, say briefly that it failed. If the app reports a request was ignored, say nothing about it. When the user wants to stop, call end_session and say goodbye.`;
 
 // NON_BLOCKING lets the model keep talking while the app runs the tool.
 // Sync-only models (3.1 today) ignore it.

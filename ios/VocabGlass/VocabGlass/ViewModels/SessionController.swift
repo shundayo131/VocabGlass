@@ -214,14 +214,9 @@ final class SessionController: ObservableObject {
                 return
             }
             activeCaptureJobs += 1
-
-            // Two-phase response: the intermediate ack frees the model
-            // within a second, so conversation and further captures keep
-            // flowing while this one runs in the background.
-            gemini.sendToolResponse(id: id, name: name,
-                                    result: ["status": "capturing"],
-                                    willContinue: true,
-                                    scheduling: "SILENT")
+            // Single-phase: the model says "Capturing." on its own when
+            // it calls the tool; the one and only response arrives when
+            // the capture finishes. Chat keeps flowing meanwhile.
             Task {
                 await handleCapture(id: id, name: name)
                 activeCaptureJobs -= 1
