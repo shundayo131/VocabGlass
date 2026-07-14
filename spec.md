@@ -177,6 +177,13 @@ Facts, measured on device:
   seconds of one-way traffic. The client detects 30 seconds of server
   silence and rebuilds the Gemini leg (new token, new socket) without
   touching DAT or audio.
+- Turn response latency varies wildly within one session: measured 1.3 s
+  to 12+ s from speech end to reply, with transport healthy throughout
+  (inflight 0, dropped 0, ping ~50 ms). Short acknowledgements ("Yes",
+  "Cool") are sometimes ignored entirely: no reply and no input
+  transcription, meaning the server VAD did not register them as a
+  turn. Longer utterances in the same session answered in 2 to 5 s.
+  The variance is server-side (VAD end-of-speech detection), not ours.
 
 Behavior chosen under these constraints:
 
@@ -296,6 +303,20 @@ everything after builds on main.
   error surfacing, hardening for a live demo.
 
 ## 9. Still open
+
+- NEXT TASK — Turn latency variance (see the measured facts in section
+  6): replies take 1.3 s to 12+ s and short utterances are sometimes
+  dropped by the server VAD. Directions to evaluate, in order:
+  1. Tune the automatic VAD via the token config
+     (realtimeInputConfig.automaticActivityDetection: end-of-speech
+     sensitivity, silence duration). Cheapest to try.
+  2. Manual activity signals: disable automatic VAD and send
+     activityStart/activityEnd from our own speech-edge detection
+     (LiveAudioEngine already computes the edges for the log).
+  3. Isolate HFP audio quality: run the same test with the iPhone mic
+     to see whether 8 kHz input worsens VAD misses.
+  4. Compare gemini-3.1-flash-live-preview turn latency (config flip;
+     tools are sync-only there, so comparison sessions only).
 
 - Gemini Live specifics: exact session duration limits, ephemeral token TTL,
   input audio format expectations at 8 kHz, and interruption behavior. Resolve
