@@ -188,6 +188,26 @@ final class SessionController: ObservableObject {
             self.lastError = "Gemini connection lost"
             self.endSession()
         }
+        // The server-side session died while the socket stayed alive
+        // (M9 finding). Quietly rebuild just the Gemini leg: new token,
+        // new socket. DAT, audio, and the session itself stay up.
+        gemini.onServerMute = { [weak self] in
+            guard let self, self.state == .active else { return }
+            Diag.event("sess", "reconnecting Gemini after server mute")
+            self.statusLine = "reconnecting to Gemini"
+            self.gemini.disconnect()
+            self.gemini.connect()
+            Task { @MainActor in
+                if await self.waitUntil(timeoutSeconds: 15, { self.gemini.isConnected }) {
+                    Diag.event("sess", "gemini reconnected")
+                    self.statusLine = self.route.isOnGlasses
+                        ? "listening (glasses)" : "listening (iPhone mic)"
+                } else {
+                    self.lastError = "Gemini reconnect failed"
+                    self.endSession()
+                }
+            }
+        }
         glasses.onDeviceSessionEnded = { [weak self] in
             guard let self, self.state == .active else { return }
             self.lastError = "glasses ended the session"

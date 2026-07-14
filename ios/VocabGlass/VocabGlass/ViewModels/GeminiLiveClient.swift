@@ -38,6 +38,12 @@ final class GeminiLiveClient: ObservableObject {
     // Fired when the socket dies unexpectedly mid-session.
     var onDisconnect: (() -> Void)?
 
+    // Fired when the server goes silent while the socket stays alive
+    // (pings pong, sends complete, nothing received for 30 s). Seen on
+    // device in M9: the server-side session dies without closing. The
+    // owner reconnects.
+    var onServerMute: (() -> Void)?
+
     // MARK: - Private 
 
     private var socket: URLSessionWebSocketTask?
@@ -71,6 +77,8 @@ final class GeminiLiveClient: ObservableObject {
     private var keepaliveTask: Task<Void, Never>?
     private var pingSentAt: Date?
     private var lastReceived = Date()
+    private var muteReported = false
+    private let serverMuteSeconds: TimeInterval = 30
 
     private struct TokenResponse: Decodable {
         let token: String
@@ -113,6 +121,7 @@ final class GeminiLiveClient: ObservableObject {
         lastSendCompleted = Date()
         inputTranscript = ""
         outputTranscript = ""
+        muteReported = false
     }
 
     // Fetch an ephemeral Gemini Live token from the worker
@@ -156,6 +165,16 @@ final class GeminiLiveClient: ObservableObject {
                 guard let socket = self.socket, !Task.isCancelled else { return }
                 self.logHeartbeat()
                 self.sendPing(socket)
+
+                // Server mute detection: socket alive but nothing
+                // received for too long means the server-side session
+                // died silently. Ask the owner to reconnect.
+                let recvAge = Date().timeIntervalSince(self.lastReceived)
+                if self.isConnected, recvAge > self.serverMuteSeconds, !self.muteReported {
+                    self.muteReported = true
+                    Diag.event("net", "server silent \(Int(recvAge)) s with live socket, requesting reconnect")
+                    self.onServerMute?()
+                }
             }
         }
     }
@@ -348,6 +367,15 @@ final class GeminiLiveClient: ObservableObject {
         // See what kinds of messages arrive (toolCall, serverContent...).
         print("gemini <- keys:", Array(message.keys))
         #endif
+
+        // Observability: message types we do not parse still show in the
+        // log. A dropped server error would otherwise be invisible.
+        let known: Set<String> = ["setupComplete", "toolCall", "serverContent",
+                                  "goAway", "usageMetadata"]
+        let unknown = message.keys.filter { !known.contains($0) }
+        if !unknown.isEmpty {
+            Diag.event("gem", "unhandled message keys: \(unknown.sorted())")
+        }
 
         // First reply after setup: the session is live
         if message["setupComplete"] != nil {
