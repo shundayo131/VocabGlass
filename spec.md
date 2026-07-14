@@ -171,6 +171,12 @@ Facts, measured on device:
   tool calls.
 - capturePhoto takes 2 to 7 seconds, card generation 2 to 3 seconds
   (with photos downscaled to 1024 px before upload).
+- The server-side session can die silently while the WebSocket stays
+  alive: pings keep ponging and sends keep completing, but nothing is
+  received, not even input transcriptions. Confirmed on device with 60
+  seconds of one-way traffic. The client detects 30 seconds of server
+  silence and rebuilds the Gemini leg (new token, new socket) without
+  touching DAT or audio.
 
 Behavior chosen under these constraints:
 
