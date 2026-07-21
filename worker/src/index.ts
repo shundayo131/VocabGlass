@@ -1,24 +1,14 @@
-//
-// VocabGlass Worker (Hono + Anthropic)
-//
-// POST /generate
-//   body:    { "image": "<base64 jpeg>", "mediaType": "image/jpeg" }
-//   returns: { "word", "pinyin", "translation", "example" }
-//
-// receive a base64 photo, ask Claude to name the main object, and
-// return a Chinese (Simplified) vocabulary card as JSON.
-//
+
 
 // Imports: Hono for routing, the Anthropic SDK for the Claude call.
 import { Hono } from 'hono';
 import Anthropic from '@anthropic-ai/sdk';
-import { GoogleGenAI, Modality, Behavior } from '@google/genai';
 
-// Bindings: the worker's environment, holding the Anthropic API key secret.
+// Bindings: the worker's environment, holding the API key secrets.
 type Bindings = {
-  ANTHROPIC_API_KEY: string;  // wrangler secret
-  GEMINI_API_KEY: string;     // wrangler secret 
-  GEMINI_LIVE_MODEL: string;  // wrangler.toml [vars]
+  ANTHROPIC_API_KEY: string;      // wrangler secret
+  OPENAI_API_KEY: string;         // wrangler secret
+  OPENAI_REALTIME_MODEL: string;  // wrangler.toml [vars]
 }
 
 // CARD_SCHEMA: the exact JSON shape Claude must return. With structured
@@ -97,70 +87,59 @@ app.post('/generate', async (c) => {
 });
 
 // The session brain. The system prompt and tools are baked into the
-// ephemeral token via liveConnectConstraints, not sent by the app: the
-// constrained WebSocket method ignores client-side setup for these
-// fields, and baking them in also means a leaked token can only start
-// a VocabGlass session, not a general-purpose Gemini one.
-// Fixed, minimal narration: "Capturing." on the call, "Stored." on the
-// result. Anything longer clogs the voice channel at 3 to 5 seconds of
-// turn latency. See spec.md, Live API constraints (M9).
-const LIVE_SYSTEM_PROMPT = `You are VocabGlass, a voice assistant for a language learning session. The user wears camera glasses and looks at real objects. Keep every reply to one short sentence. When the user asks to capture something, call capture_object and say only: Capturing. When a tool result with a saved entry arrives, say only: Stored. If a tool result reports an error, say briefly that it failed. If the app reports a request was ignored, say nothing about it. When the user wants to stop, call end_session and say goodbye.`;
+// ephemeral key via the session config, not sent by the app: a leaked
+// key can only start a VocabGlass session, not a general-purpose one.
+// The model decides on its own when to call the tools.
+const REALTIME_SYSTEM_PROMPT = `You are VocabGlass, a voice assistant for a language learning session. The user wears camera glasses and looks at real objects, capturing them as vocabulary cards. Keep replies short and conversational.`;
 
-// NON_BLOCKING lets the model keep talking while the app runs the tool.
-// Sync-only models (3.1 today) ignore it.
-const LIVE_TOOLS = [{
-  functionDeclarations: [
-    {
-      name: 'capture_object',
-      description: 'Capture a photo of what the user is looking at and save it as a vocabulary entry. Call this when the user asks to capture, save, or learn the thing they see.',
-      behavior: Behavior.NON_BLOCKING,
-    },
-    {
-      name: 'end_session',
-      description: 'End the current learning session. Call this when the user says they are done or asks to end the session.',
-      behavior: Behavior.NON_BLOCKING,
-    },
-  ],
-}];
+const REALTIME_TOOLS = [
+  {
+    type: 'function',
+    name: 'capture_object',
+    description: 'Capture a photo of what the user is looking at and save it as a vocabulary entry. Call this when the user asks to capture, save, or learn the thing they see.',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
+    type: 'function',
+    name: 'end_session',
+    description: 'End the current learning session. Call this when the user says they are done or asks to end the session.',
+    parameters: { type: 'object', properties: {} },
+  },
+];
 
-// POST /token : mint a single-use ephemeral token for the Gemini Live API.
-// The iOS app connects to Gemini directly with this token
-// so the real API key is never exposed to the client.
-// The token is locked to our model, prompt, and tools, and a new
-// connection must start within 2 minutes of minting.
+// POST /token : mint an ephemeral client secret for the OpenAI Realtime
+// API. The iOS app uses it to open a WebRTC connection directly to
+// OpenAI, so the real API key is never exposed to the client. The key
+// expires 10 minutes after minting.
 app.post('/token', async (c) => {
-  // Ephemeral tokens only exist on the v1alpha API surface 
-  const ai = new GoogleGenAI({ 
-    apiKey: c.env.GEMINI_API_KEY, 
-    httpOptions: {apiVersion: 'v1alpha'} 
-  }); 
-
   try {
-    const now = Date.now();
-    const token = await ai.authTokens.create({
-      config: {
-        uses: 1,
-        // Messages allowed for 12 minutes (10 minites + 2 minutes setup/buffer)
-        expireTime: new Date(now + 12 * 60_000).toISOString(),
-        newSessionExpireTime: new Date(now + 2 * 60_000).toISOString(),
-        liveConnectConstraints: {
-          model: c.env.GEMINI_LIVE_MODEL,
-          config: {
-            responseModalities: [Modality.AUDIO],
-            systemInstruction: LIVE_SYSTEM_PROMPT,
-            tools: LIVE_TOOLS,
-            // Debug instrumentation (M13: remove): the app logs what Gemini
-            // heard and said, with timestamps, to diagnose latency and echo.
-            inputAudioTranscription: {},
-            outputAudioTranscription: {},
-          },
+    const res = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
+      method: 'POST',
+      headers: {
+        'authorization': `Bearer ${c.env.OPENAI_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        expires_after: { anchor: 'created_at', seconds: 600 },
+        session: {
+          type: 'realtime',
+          model: c.env.OPENAI_REALTIME_MODEL,
+          instructions: REALTIME_SYSTEM_PROMPT,
+          tools: REALTIME_TOOLS,
+          tool_choice: 'auto',
+          audio: { output: { voice: 'marin' } },
         },
-      }
+      }),
     });
-    return c.json({ token: token.name, model: c.env.GEMINI_LIVE_MODEL });
+    if (!res.ok) {
+      // Log the upstream detail server-side only; the raw OpenAI error
+      // exposes backend state to anonymous callers.
+      console.error('token request failed:', res.status, await res.text());
+      return c.json({ error: 'token request failed' }, 502);
+    }
+    const data = await res.json<{ value: string }>();
+    return c.json({ token: data.value, model: c.env.OPENAI_REALTIME_MODEL });
   } catch (err) {
-    // Log the upstream detail server-side only; the raw Google error
-    // exposes backend state to anonymous callers.
     console.error('token request failed:', err);
     return c.json({ error: 'token request failed' }, 502);
   }

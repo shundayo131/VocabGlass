@@ -3,16 +3,16 @@
 //  VocabGlass
 //
 //  The conductor of a voice session: starts and stops the DAT camera,
-//  audio route, audio engine, and Gemini connection as one unit, and
-//  turns Gemini tool calls into real app actions. The only class that
-//  knows all the other components.
+//  audio route, and OpenAI Realtime connection as one unit, and turns
+//  tool calls into real app actions. The only class that knows all the
+//  other components.
 //
 
-import Foundation 
-import Combine 
-import UIKit 
+import Foundation
+import Combine
+import AVFoundation
 
-@MainActor 
+@MainActor
 final class SessionController: ObservableObject {
 
     enum SessionState: String {
@@ -22,51 +22,30 @@ final class SessionController: ObservableObject {
     // MARK: - State the UI reads
     @Published private(set) var state: SessionState = .idle
     @Published var statusLine = "no session"
-    @Published var lastError: String? 
+    @Published var lastError: String?
     @Published private(set) var remainingSeconds = 0
 
     private var sessionTimer: Task<Void, Never>?
     static let sessionLimitSeconds = 10 * 60
 
-    // One capture at a time, deliberately. A capture requested while one
-    // is processing fires 10+ seconds later (turn latency stacks on tool
-    // latency), when the user is no longer aiming at the object. Busy +
-    // "please wait" is the better experience (spec: Voice UX design, M9).
-    private var activeCaptureJobs = 0
-    static let maxCaptureJobs = 1
-    
-    // MARK: - Dependencies 
+    // MARK: - Dependencies
 
-    // Shared with v1 screens. injected. 
+    // Shared with v1 screens. injected.
     private let glasses: GlassesClient
     private let store: CardStore
 
-    // Session only, owned here. 
-    private let gemini = GeminiLiveClient()
-    private let audioEngine = LiveAudioEngine()
+    // Session only, owned here.
+    private let realtime = RealtimeClient()
     private let route = AudioRouteManager()
 
     init(glasses: GlassesClient, store: CardStore) {
         self.glasses = glasses
         self.store = store
-
-        // Observability: correlate session trouble with the app moving
-        // to and from the background (screen lock, app switch).
-        NotificationCenter.default.addObserver(
-            forName: UIApplication.didEnterBackgroundNotification,
-            object: nil, queue: .main
-        ) { _ in Diag.event("app", "background") }
-        NotificationCenter.default.addObserver(
-            forName: UIApplication.willEnterForegroundNotification,
-            object: nil, queue: .main
-        ) { _ in Diag.event("app", "foreground") }
     }
 
 
     func startSession() {
         guard state == .idle else { return }
-        Diag.resetDebugLog()
-        Diag.event("sess", "starting")
         state = .starting
         lastError = nil
         Task { await start() }
@@ -75,8 +54,12 @@ final class SessionController: ObservableObject {
     private func start() async {
         wireCallbacks()
 
-        // 1. Audio route first (M7: both orders worked, but this order
-        //    also matches the documented recommendation).
+        // 1. Mic permission, then the audio route, so WebRTC finds the
+        //    glasses mic already selected when it starts capturing.
+        guard await AVAudioApplication.requestRecordPermission() else {
+            fail("microphone permission denied")
+            return
+        }
         statusLine = "configuring audio"
         do {
             try route.activate()
@@ -94,37 +77,28 @@ final class SessionController: ObservableObject {
             return
         }
 
-        // 3. Gemini. connect() also kicks off an async chain.
-        statusLine = "connecting to Gemini"
-        gemini.connect()
-        guard await waitUntil(timeoutSeconds: 15, { self.gemini.isConnected }) else {
-            fail("Gemini did not connect: \(gemini.status)")
+        // 3. OpenAI. connect() also kicks off an async chain; audio
+        //    flows both ways over WebRTC once the session is created.
+        statusLine = "connecting to OpenAI"
+        realtime.connect()
+        guard await waitUntil(timeoutSeconds: 15, { self.realtime.isConnected }) else {
+            fail("OpenAI did not connect: \(realtime.status)")
             return
         }
 
-        // 4. Audio engine last, when everything it feeds is up.
-        do {
-            try audioEngine.start()
-        } catch {
-            fail("audio engine: \(error.localizedDescription)")
-            return
-        }
-
-        // 5. The 10 minute session timer.
+        // 4. The 10 minute session timer.
         startTimer()
 
         state = .active
         statusLine = route.isOnGlasses ? "listening (glasses)" : "listening (iPhone mic)"
-        Diag.event("sess", "active, \(route.isOnGlasses ? "glasses" : "iPhone mic")")
     }
-    
+
     // MARK: - End
 
     // The single exit, reached from every path: the UI button, the voice
-    // command, the timer, GoAway, a lost socket, or the device itself.
+    // command, the timer, a lost connection, or the device itself.
     func endSession() {
         guard state == .active || state == .starting else { return }
-        Diag.event("sess", "ending (\(lastError ?? "normal"))")
         state = .ending
         statusLine = "ending session"
 
@@ -133,8 +107,7 @@ final class SessionController: ObservableObject {
         remainingSeconds = 0
 
         // Tear down in reverse order of startup.
-        audioEngine.stop()
-        gemini.disconnect()
+        realtime.disconnect()
         route.deactivate()
         glasses.stopCamera()
 
@@ -154,22 +127,9 @@ final class SessionController: ObservableObject {
     // Connect the components to each other. Called once per session
     // start; the closures replace the previous session's wiring.
     private func wireCallbacks() {
-        // Mic chunks up to Gemini (audio thread -> main actor hop).
-        audioEngine.onMicChunk = { [weak self] data in
-            Task { @MainActor in self?.gemini.sendAudioChunk(data) }
-        }
-        // Reply audio down to the speaker.
-        gemini.onAudioChunk = { [weak self] data in
-            self?.audioEngine.play(data)
-        }
-        // User talked over the model: drop the stale reply audio.
-        gemini.onInterrupted = { [weak self] in
-            self?.audioEngine.flushPlayback()
-        }
-
         // Tool calls into app actions.
-        gemini.onToolCall = { [weak self] id, name in
-            self?.handleToolCall(id: id, name: name)
+        realtime.onToolCall = { [weak self] callId, name in
+            self?.handleToolCall(callId: callId, name: name)
         }
 
         // Route moves (Hey Meta, glasses off) update the status line.
@@ -178,35 +138,10 @@ final class SessionController: ObservableObject {
             self.statusLine = isOnGlasses ? "listening (glasses)" : "listening (iPhone mic)"
         }
 
-        gemini.onGoAway = { [weak self] in
+        realtime.onDisconnect = { [weak self] in
             guard let self, self.state == .active else { return }
-            self.lastError = "Gemini closed the connection (10 min limit)"
+            self.lastError = "OpenAI connection lost"
             self.endSession()
-        }
-        gemini.onDisconnect = { [weak self] in
-            guard let self, self.state == .active else { return }
-            self.lastError = "Gemini connection lost"
-            self.endSession()
-        }
-        // The server-side session died while the socket stayed alive
-        // (M9 finding). Quietly rebuild just the Gemini leg: new token,
-        // new socket. DAT, audio, and the session itself stay up.
-        gemini.onServerMute = { [weak self] in
-            guard let self, self.state == .active else { return }
-            Diag.event("sess", "reconnecting Gemini after server mute")
-            self.statusLine = "reconnecting to Gemini"
-            self.gemini.disconnect()
-            self.gemini.connect()
-            Task { @MainActor in
-                if await self.waitUntil(timeoutSeconds: 15, { self.gemini.isConnected }) {
-                    Diag.event("sess", "gemini reconnected")
-                    self.statusLine = self.route.isOnGlasses
-                        ? "listening (glasses)" : "listening (iPhone mic)"
-                } else {
-                    self.lastError = "Gemini reconnect failed"
-                    self.endSession()
-                }
-            }
         }
         glasses.onDeviceSessionEnded = { [weak self] in
             guard let self, self.state == .active else { return }
@@ -215,40 +150,20 @@ final class SessionController: ObservableObject {
         }
     }
 
-    // MARK: - Tool Calls 
+    // MARK: - Tool Calls
 
-    // handle Gemini's toolcall request 
-    private func handleToolCall(id: String, name: String) {
+    private func handleToolCall(callId: String, name: String) {
         switch name {
         case "capture_object":
-            guard activeCaptureJobs < Self.maxCaptureJobs else {
-                // Ignore, silently. Answering the call is still required
-                // (an unanswered call locks the model up), but SILENT
-                // means the model absorbs it without saying anything.
-                // The current capture's announcement is the user's cue.
-                Diag.event("tool", "capture ignored: one already in flight")
-                gemini.sendToolResponse(id: id, name: name, result: [
-                    "status": "ignored",
-                    "message": "A capture is already processing. This request was dropped. Do not mention it.",
-                ], scheduling: "SILENT")
-                return
-            }
-            activeCaptureJobs += 1
-            // Single-phase: the model says "Capturing." on its own when
-            // it calls the tool; the one and only response arrives when
-            // the capture finishes. Chat keeps flowing meanwhile.
-            Task {
-                await handleCapture(id: id, name: name)
-                activeCaptureJobs -= 1
-            }
+            Task { await handleCapture(callId: callId) }
 
         case "end_session":
-            // Answer first so Gemini can say goodbye, then tear down.
-            gemini.sendToolResponse(id: id, name: name, result: ["status": "ending"])
+            // Answer first so the model can say goodbye, then tear down.
+            realtime.sendToolResult(callId: callId, result: ["status": "ending"])
             endSession()
 
         default:
-            gemini.sendToolResponse(id: id, name: name, result: [
+            realtime.sendToolResult(callId: callId, result: [
                 "status": "error",
                 "message": "unknown tool \(name)",
             ])
@@ -256,44 +171,38 @@ final class SessionController: ObservableObject {
     }
 
     // photo -> card -> save -> spoken confirmation.
-    // Always answers the tool call, success or failure, 
-    // so Gemini never waits forever.
-    private func handleCapture(id: String, name: String) async {
+    // Always answers the tool call, success or failure,
+    // so the model never waits forever.
+    private func handleCapture(callId: String) async {
         do {
             statusLine = "capturing photo"
-            Diag.event("tool", "capture begin")
             let image = try await glasses.captureAndWait()
-            Diag.event("tool", "photo ok")
 
             statusLine = "generating card"
             let card = try await CardAPI.generate(from: image)
-            Diag.event("tool", "card ok: \(card.word)")
 
             store.save(card, image: image)
             statusLine = "saved: \(card.word)"
 
-            // respond to Gemini's tool call request 
-            gemini.sendToolResponse(id: id, name: name, result: [
+            realtime.sendToolResult(callId: callId, result: [
                 "status": "saved",
                 "word": card.word,
                 "pronunciation": card.pinyin,
                 "translation": card.translation,
                 "example": card.example,
             ])
-            Diag.event("tool", "toolResponse sent (saved)")
         } catch {
             statusLine = "capture failed"
             lastError = "capture: \(error.localizedDescription)"
-            Diag.event("tool", "error: \(error.localizedDescription)")
-            gemini.sendToolResponse(id: id, name: name, result: [
+            realtime.sendToolResult(callId: callId, result: [
                 "status": "error",
                 "message": error.localizedDescription,
             ])
         }
     }
 
-    // MARK: - Helpers 
-    
+    // MARK: - Helpers
+
     // Poll a condition until it holds or the deadline passes. The same
     // missed-event-proof pattern as GlassesClient's session wait.
     private func waitUntil(timeoutSeconds: Double,
