@@ -59,8 +59,7 @@ Constraints the code depends on (do not "improve" these away):
 1. Language selection. Picker for the four languages; worker takes a
    language parameter; rename pinyin to pronunciation with a decode-time
    migration.
-2. Demo polish and cleanup. Refresh docs, remove the DesignMocks
-   folder, rehearse the demo.
+2. Demo polish and cleanup. Refresh docs, rehearse the demo.
 
 Done: edit and delete entries (with delete confirmation); tabbed UI in
 the Quiet style (Capture and Deck tabs, manual capture kept as a

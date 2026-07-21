@@ -13,12 +13,6 @@
 		01A8BB212FEB2FCC00A55964 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 01A8BB222FEB2FCC00A55964 /* WebRTC */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXFileReference section */
-		01A8BAFE2FEB2EB400A55964 /* VocabGlass.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VocabGlass.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A100000000000000000000A5 /* VocabGlassTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocabGlassTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		B100000000000000000000B5 /* VocabGlassUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocabGlassUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-/* End PBXFileReference section */
-
 /* Begin PBXContainerItemProxy section */
 		A100000000000000000000AA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -35,6 +29,12 @@
 			remoteInfo = VocabGlass;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		01A8BAFE2FEB2EB400A55964 /* VocabGlass.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VocabGlass.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A100000000000000000000A5 /* VocabGlassTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocabGlassTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B100000000000000000000B5 /* VocabGlassUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocabGlassUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		01A8BB142FEB30FA00A55964 /* Exceptions for "VocabGlass" folder in "VocabGlass" target */ = {
