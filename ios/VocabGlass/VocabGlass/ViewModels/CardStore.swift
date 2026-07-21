@@ -14,10 +14,14 @@ import UIKit
 final class CardStore: ObservableObject {
     @Published private(set) var cards: [SavedCard] = []
 
+    // Where the index and images live. Documents in the app; tests
+    // inject a temp directory so they never touch real data.
+    private let directory: URL
     private let indexURL: URL
 
-    init() {
-        indexURL = Self.documents.appendingPathComponent("cards.json")
+    init(directory: URL = CardStore.documents) {
+        self.directory = directory
+        indexURL = directory.appendingPathComponent("cards.json")
         load()
     }
 
@@ -25,7 +29,7 @@ final class CardStore: ObservableObject {
     func save(_ card: LearningCard, image: UIImage) {
         let fileName = "\(card.id).jpg"
         if let jpeg = image.jpegData(compressionQuality: 0.8) {
-            try? jpeg.write(to: Self.documents.appendingPathComponent(fileName))
+            try? jpeg.write(to: directory.appendingPathComponent(fileName))
         }
         let saved = SavedCard(
             id: card.id,
@@ -40,9 +44,34 @@ final class CardStore: ObservableObject {
         persist()
     }
 
+    // Replace the text of an existing card. Unknown ids are ignored.
+    // Identity, image, and creation date are left alone.
+    func update(_ card: SavedCard) {
+        guard let index = cards.firstIndex(where: { $0.id == card.id }) else { return }
+        cards[index] = card
+        persist()
+    }
+
+    // Remove a card and its photo. Unknown ids are ignored.
+    func delete(_ card: SavedCard) {
+        guard let index = cards.firstIndex(where: { $0.id == card.id }) else { return }
+        cards.remove(at: index)
+        try? FileManager.default.removeItem(
+            at: directory.appendingPathComponent(card.imageFileName)
+        )
+        persist()
+    }
+
+    // Convenience for List.onDelete, which hands back row offsets.
+    func delete(at offsets: IndexSet) {
+        for card in offsets.map({ cards[$0] }) {
+            delete(card)
+        }
+    }
+
     // Load the image for a saved card from disk.
     func image(for card: SavedCard) -> UIImage? {
-        let url = Self.documents.appendingPathComponent(card.imageFileName)
+        let url = directory.appendingPathComponent(card.imageFileName)
         guard let data = try? Data(contentsOf: url) else { return nil }
         return UIImage(data: data)
     }
@@ -59,7 +88,7 @@ final class CardStore: ObservableObject {
         try? data.write(to: indexURL)
     }
 
-    private static var documents: URL {
+    nonisolated static var documents: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 }

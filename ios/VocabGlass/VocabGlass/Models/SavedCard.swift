@@ -10,10 +10,12 @@ import Foundation
 
 struct SavedCard: Codable, Identifiable {
     let id: UUID
-    let word: String
-    let pinyin: String
-    let translation: String
-    let example: String
+    // The four text fields are editable. Identity, image, and creation date
+    // are not: editing a card must not change which photo it points at.
+    var word: String
+    var pinyin: String
+    var translation: String
+    var example: String
     let imageFileName: String
     let createdAt: Date
 }

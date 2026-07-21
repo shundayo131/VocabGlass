@@ -15,12 +15,14 @@ This is a demo, not a commercial product.
 3. The photo goes to an AI layer that names the object and writes a Chinese
    (Simplified) vocabulary card: word (hanzi), pinyin, English translation, and
    an example sentence.
-4. The card is saved with the photo into a local deck you can browse.
+4. The card is saved with the photo into a local deck you can browse,
+   edit, and delete, and review as flashcards: photo first, then reveal
+   the word, pronunciation, meaning, and example.
 
 You can capture as many objects as you like in a single session (10 minutes). 
 The session keeps running while the phone is locked or in the background, 
 and ends by voice ("I'm done"), by button, or after a 10 minute timer. 
-Manual capture from the app still works outside a session.
+Manual capture survives as a debug-only Dev tab for development.
 
 The glasses are an input device, not an app runtime. The app runs on iPhone:
 photos come over Bluetooth via the DAT SDK, and voice runs over the OS
@@ -28,9 +30,14 @@ Bluetooth audio route (DAT has no microphone API).
 
 ## Screenshots
 
-| Capture a photo | Generate a card | Browse your deck |
-|---|---|---|
-| ![Captured photo](docs/screenshots/01-capture.png) | ![Generated card](docs/screenshots/02-card.png) | ![Saved deck](docs/screenshots/03-deck.png) |
+| Home | Voice session | Deck | Flashcards |
+|---|---|---|---|
+| ![Home, ready to start](docs/screenshots/01-home.png) | ![Live session with a saved card](docs/screenshots/02-session.png) | ![Saved deck grid](docs/screenshots/03-deck.png) | ![Flashcard review, answer revealed](docs/screenshots/04-flashcard.png) |
+
+Home shows the glasses status and voice commands before a session. During
+a session the newest capture lands on screen as it is saved. The deck
+collects every card with its photo, and flashcard review shows the photo
+first, then reveals the word, pronunciation, meaning, and example.
 
 ## Architecture
 

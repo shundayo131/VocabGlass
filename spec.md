@@ -56,18 +56,13 @@ Constraints the code depends on (do not "improve" these away):
 
 ## Tasks
 
-1. Realtime conversation latency. Server-side VAD is erratic: replies
-   take 1.3 to 12+ seconds and short utterances ("Yes") are sometimes
-   ignored entirely. Plan: build a small JavaScript Live API testbed
-   (browser mic, reuses the worker /token) to find settings that make
-   turns reliable — VAD tuning, manual activityStart/activityEnd, 8 kHz
-   simulation, model comparison — then port the winner to iOS.
-2. UI improvement. Simple, functional session and main screens.
-3. Language selection. Picker for the four languages; worker takes a
+1. Language selection. Picker for the four languages; worker takes a
    language parameter; rename pinyin to pronunciation with a decode-time
    migration.
-4. Edit and delete entries.
-5. Flashcard review. Image first, "Show answer" reveals word,
-   pronunciation, meaning, example.
-6. Demo polish and cleanup. Remove the spike screen and everything
-   tagged "M13: remove", refresh README and docs, rehearse the demo.
+2. Demo polish and cleanup. Refresh docs, remove the DesignMocks
+   folder, rehearse the demo.
+
+Done: edit and delete entries (with delete confirmation); tabbed UI in
+the Quiet style (Capture and Deck tabs, manual capture kept as a
+debug-only Dev tab); flashcard review (image first, Show answer reveals
+word, pronunciation, meaning, example); unit and UI test targets.

@@ -10,11 +10,31 @@
 		01A8BB0E2FEB2FCC00A55964 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = 01A8BB0D2FEB2FCC00A55964 /* MWDATCamera */; };
 		01A8BB102FEB2FCC00A55964 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 01A8BB0F2FEB2FCC00A55964 /* MWDATCore */; };
 		01A8BB122FEB2FCC00A55964 /* MWDATMockDevice in Frameworks */ = {isa = PBXBuildFile; productRef = 01A8BB112FEB2FCC00A55964 /* MWDATMockDevice */; };
+		01A8BB212FEB2FCC00A55964 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 01A8BB222FEB2FCC00A55964 /* WebRTC */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		01A8BAFE2FEB2EB400A55964 /* VocabGlass.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VocabGlass.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A100000000000000000000A5 /* VocabGlassTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocabGlassTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B100000000000000000000B5 /* VocabGlassUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocabGlassUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		A100000000000000000000AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 01A8BAF62FEB2EB400A55964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 01A8BAFD2FEB2EB400A55964;
+			remoteInfo = VocabGlass;
+		};
+		B100000000000000000000BA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 01A8BAF62FEB2EB400A55964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 01A8BAFD2FEB2EB400A55964;
+			remoteInfo = VocabGlass;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		01A8BB142FEB30FA00A55964 /* Exceptions for "VocabGlass" folder in "VocabGlass" target */ = {
@@ -35,6 +55,16 @@
 			path = VocabGlass;
 			sourceTree = "<group>";
 		};
+		A100000000000000000000A6 /* VocabGlassTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VocabGlassTests;
+			sourceTree = "<group>";
+		};
+		B100000000000000000000B6 /* VocabGlassUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VocabGlassUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +75,21 @@
 				01A8BB0E2FEB2FCC00A55964 /* MWDATCamera in Frameworks */,
 				01A8BB122FEB2FCC00A55964 /* MWDATMockDevice in Frameworks */,
 				01A8BB102FEB2FCC00A55964 /* MWDATCore in Frameworks */,
+				01A8BB212FEB2FCC00A55964 /* WebRTC in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A100000000000000000000A3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B100000000000000000000B3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,6 +100,8 @@
 			isa = PBXGroup;
 			children = (
 				01A8BB002FEB2EB400A55964 /* VocabGlass */,
+				A100000000000000000000A6 /* VocabGlassTests */,
+				B100000000000000000000B6 /* VocabGlassUITests */,
 				01A8BAFF2FEB2EB400A55964 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -63,6 +110,8 @@
 			isa = PBXGroup;
 			children = (
 				01A8BAFE2FEB2EB400A55964 /* VocabGlass.app */,
+				A100000000000000000000A5 /* VocabGlassTests.xctest */,
+				B100000000000000000000B5 /* VocabGlassUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -90,10 +139,57 @@
 				01A8BB0D2FEB2FCC00A55964 /* MWDATCamera */,
 				01A8BB0F2FEB2FCC00A55964 /* MWDATCore */,
 				01A8BB112FEB2FCC00A55964 /* MWDATMockDevice */,
+				01A8BB222FEB2FCC00A55964 /* WebRTC */,
 			);
 			productName = VocabGlass;
 			productReference = 01A8BAFE2FEB2EB400A55964 /* VocabGlass.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A100000000000000000000A1 /* VocabGlassTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A100000000000000000000A7 /* Build configuration list for PBXNativeTarget "VocabGlassTests" */;
+			buildPhases = (
+				A100000000000000000000A2 /* Sources */,
+				A100000000000000000000A3 /* Frameworks */,
+				A100000000000000000000A4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A100000000000000000000AB /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A100000000000000000000A6 /* VocabGlassTests */,
+			);
+			name = VocabGlassTests;
+			packageProductDependencies = (
+			);
+			productName = VocabGlassTests;
+			productReference = A100000000000000000000A5 /* VocabGlassTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		B100000000000000000000B1 /* VocabGlassUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B100000000000000000000B7 /* Build configuration list for PBXNativeTarget "VocabGlassUITests" */;
+			buildPhases = (
+				B100000000000000000000B2 /* Sources */,
+				B100000000000000000000B3 /* Frameworks */,
+				B100000000000000000000B4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B100000000000000000000BB /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B100000000000000000000B6 /* VocabGlassUITests */,
+			);
+			name = VocabGlassUITests;
+			packageProductDependencies = (
+			);
+			productName = VocabGlassUITests;
+			productReference = B100000000000000000000B5 /* VocabGlassUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
@@ -108,6 +204,14 @@
 					01A8BAFD2FEB2EB400A55964 = {
 						CreatedOnToolsVersion = 26.5;
 					};
+					A100000000000000000000A1 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 01A8BAFD2FEB2EB400A55964;
+					};
+					B100000000000000000000B1 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 01A8BAFD2FEB2EB400A55964;
+					};
 				};
 			};
 			buildConfigurationList = 01A8BAF92FEB2EB400A55964 /* Build configuration list for PBXProject "VocabGlass" */;
@@ -121,6 +225,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				01A8BB0C2FEB2FCC00A55964 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
+				01A8BB202FEB2FCC00A55964 /* XCRemoteSwiftPackageReference "WebRTC" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 01A8BAFF2FEB2EB400A55964 /* Products */;
@@ -128,12 +233,28 @@
 			projectRoot = "";
 			targets = (
 				01A8BAFD2FEB2EB400A55964 /* VocabGlass */,
+				A100000000000000000000A1 /* VocabGlassTests */,
+				B100000000000000000000B1 /* VocabGlassUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		01A8BAFC2FEB2EB400A55964 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A100000000000000000000A4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B100000000000000000000B4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -150,7 +271,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A100000000000000000000A2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B100000000000000000000B2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A100000000000000000000AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 01A8BAFD2FEB2EB400A55964 /* VocabGlass */;
+			targetProxy = A100000000000000000000AA /* PBXContainerItemProxy */;
+		};
+		B100000000000000000000BB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 01A8BAFD2FEB2EB400A55964 /* VocabGlass */;
+			targetProxy = B100000000000000000000BA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		01A8BB072FEB2EB500A55964 /* Debug */ = {
@@ -342,6 +490,84 @@
 			};
 			name = Release;
 		};
+		A100000000000000000000A8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4924TC3V4V;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shunito.VocabGlassTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VocabGlass.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VocabGlass";
+			};
+			name = Debug;
+		};
+		A100000000000000000000A9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4924TC3V4V;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shunito.VocabGlassTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VocabGlass.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VocabGlass";
+			};
+			name = Release;
+		};
+		B100000000000000000000B8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4924TC3V4V;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shunito.VocabGlassUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = VocabGlass;
+			};
+			name = Debug;
+		};
+		B100000000000000000000B9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4924TC3V4V;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shunito.VocabGlassUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = VocabGlass;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -363,6 +589,24 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		A100000000000000000000A7 /* Build configuration list for PBXNativeTarget "VocabGlassTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000000000000000000A8 /* Debug */,
+				A100000000000000000000A9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B100000000000000000000B7 /* Build configuration list for PBXNativeTarget "VocabGlassUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B100000000000000000000B8 /* Debug */,
+				B100000000000000000000B9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -372,6 +616,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 0.7.0;
+			};
+		};
+		01A8BB202FEB2FCC00A55964 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 125.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -391,6 +643,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 01A8BB0C2FEB2FCC00A55964 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
 			productName = MWDATMockDevice;
+		};
+		01A8BB222FEB2FCC00A55964 /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 01A8BB202FEB2FCC00A55964 /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

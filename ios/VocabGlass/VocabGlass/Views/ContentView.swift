@@ -2,6 +2,9 @@
 //  ContentView.swift
 //  VocabGlass
 //
+//  Manual capture controls, kept as the debug-only Dev tab. The
+//  app-level wiring (client.start, onOpenURL) moved to RootView.
+//
 
 import SwiftUI
 import MWDATCore
@@ -63,15 +66,6 @@ struct ContentView: View {
                 .controlSize(.large)
             }
 
-            NavigationLink {
-                SessionView(controller: session, store: store)
-            } label: {
-                Label("Voice session", systemImage: "mic.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-
             Button {
                 client.capturePhoto()
             } label: {
@@ -119,23 +113,7 @@ struct ContentView: View {
             Spacer()
             }
             .padding()
-            .navigationTitle("VocabGlass")
-            .toolbar {
-                #if DEBUG
-                ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink("Spike") { VoiceSpikeView(client: client) }
-                }
-                #endif
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        HistoryView(store: store)
-                    } label: {
-                        Label("Deck", systemImage: "rectangle.stack")
-                    }
-                }
-            }
-            .onAppear { client.start() }
-            .onOpenURL { url in client.handleUrl(url) }
+            .navigationTitle("Dev")
         }
     }
 }

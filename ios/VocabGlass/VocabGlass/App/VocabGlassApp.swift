@@ -33,6 +33,11 @@ struct VocabGlassApp: App {
         // during init, so this is the standard dependency-injection dance.
         let client = GlassesClient()
         let store = CardStore()
+        #if DEBUG
+        // UI tests and screenshot runs put the deck into a known state
+        // via launch arguments. No-op without them.
+        UITestSupport.prepare(store: store)
+        #endif
         _client = StateObject(wrappedValue: client)
         _store = StateObject(wrappedValue: store)
         _session = StateObject(wrappedValue: SessionController(glasses: client, store: store))
@@ -40,7 +45,7 @@ struct VocabGlassApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(client: client, store: store, session: session)
+            RootView(client: client, store: store, session: session)
         }
     }
 }
