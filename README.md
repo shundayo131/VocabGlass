@@ -4,7 +4,8 @@ A demo application built on **iOS + Meta Ray-Ban (Gen 2)
 smart glasses**. It explores pairing an iPhone app with the Meta Wearables
 Device Access Toolkit (DAT) and a multimodal AI backend.
 
-This is a demo, not a commercial product.
+This is a demo, not a commercial product: Meta DAT is in developer
+preview, so you build the app yourself in Xcode to try it (see Running it).
 
 ## What it does
 
