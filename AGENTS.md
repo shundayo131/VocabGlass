@@ -2,7 +2,7 @@
 
 Instructions for AI agents (and humans) working in this repo.
 
-## What this project is
+## Project
 
 A demo iOS app for language learners. The user looks at a real-world object
 through Meta Ray-Ban (Gen 2) glasses, the app captures a photo from the glasses,
@@ -16,20 +16,36 @@ This is a demo project that explores pairing iOS with DAT for smart glasses.
 
 ## How to work here
 
-- Explain before building. For each meaningful piece, say what we are doing,
-  which DAT or iOS API it uses, why that one, and how it fits the architecture.
-- Do not write the whole app at once. One small milestone at a time.
-- Default to giving a skeleton plus instructions and letting the owner write the
-  code. Write it for them only if they get stuck or ask.
-- Always say which file, where it lives, and what it does before any code is
-  written.
-- Do not scaffold many files without walking through the plan and getting an OK.
-- Stop and check in at the end of each milestone.
+Read the relevant code before making changes.
+Implement one small, complete change at a time.
+Follow existing patterns and avoid unrelated refactors.
+Run the relevant tests, build, lint, or type-check before finishing.
+Do not commit, push, or deploy unless asked.
 
-## Writing style for anything drafted
+## Commits
 
-Plain English. No em dashes. No filler or AI-slop phrasing. This applies to
-code comments, docs, and commit messages.
+Use conventional commit messages.
+
+feat: add card deletion
+fix: handle failed API request
+refactor: simplify card storage
+test: add card service tests
+docs: update setup instructions
+
+## Code 
+
+Keep SwiftUI views focused on UI.
+Keep networking, storage, and business logic outside views.
+Keep TypeScript strict.
+Validate external input and API responses.
+Prefer simple code over unnecessary abstractions.
+
+## Style 
+
+Match the existing codebase style.
+Use plain English. No em dashes. No filler or AI-slop phrasing.
+Use clear names and concise comments.
+Use plain English in docs and commit messages.
 
 ## Tech stack
 
@@ -40,12 +56,13 @@ code comments, docs, and commit messages.
 - Backend: Cloudflare Workers as the API endpoint.
 - AI: Anthropic Claude API as the multimodal model. The Worker takes the image
   plus any instruction, calls Claude with the image, and returns the generated
-  word, translation, and example phrase.
+  word, translation, and example phrase. 
+  Open AI realtime API for a live session and intelligence layer. 
 
 ## DAT integration
 
 For DAT API names, signatures, setup, and Info.plist requirements, use the
-`mwdat-ios` skill (installed, v0.7.0). It is the authoritative source. Do not
+`mwdat-ios` skill (installed, v0.9.0). It is the authoritative source. Do not
 invent or guess DAT method names, and do not copy the API surface into this
 file where it can go stale. If unsure of a signature, check the skill or the
 resolved Swift package.
@@ -58,10 +75,3 @@ Project-specific DAT notes that the skill will not tell you:
 - Doc inconsistency to watch: one mock-testing snippet imports `MetaWearablesDAT`
   while the rest use `MWDATCore / MWDATCamera / MWDATMockDevice`. Confirm the real
   module name from the resolved package before relying on either.
-
-## Scope
-
-`spec.md` is the source of truth for scope, architecture, data model,
-milestones, and open decisions. Read it before building, and keep work inside
-the current milestone. Do not build or pad toward out-of-scope items; where a
-later-phase hook is unavoidable, leave a comment marker and nothing more.
